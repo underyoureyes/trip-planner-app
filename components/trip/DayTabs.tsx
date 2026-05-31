@@ -1,5 +1,4 @@
 'use client'
-
 import { useRef, useEffect } from 'react'
 import type { Day } from '@/lib/types'
 
@@ -14,25 +13,14 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
   const activeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (activeRef.current && scrollRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      })
-    }
+    activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }, [activeIndex])
-
-  function formatTabDate(dateStr: string) {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-  }
 
   return (
     <div
       ref={scrollRef}
-      className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none"
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      className="flex gap-2 overflow-x-auto px-3 py-2.5"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
     >
       {days.map((day, i) => {
         const isActive = i === activeIndex
@@ -41,18 +29,13 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
             key={i}
             ref={isActive ? activeRef : undefined}
             onClick={() => onSelect(i)}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-              isActive
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'bg-white text-gray-600 border border-gray-200'
-            }`}
+            className="flex-shrink-0 rounded-[20px] text-[13px] font-semibold whitespace-nowrap transition-all"
+            style={isActive
+              ? { background: '#2563a8', color: '#fff', padding: '7px 15px', boxShadow: '0 2px 8px rgba(37,99,168,0.30)' }
+              : { background: '#e8edf5', color: '#475569', padding: '7px 15px' }
+            }
           >
-            <span className="font-semibold">Day {day.day_number}</span>
-            {day.date && (
-              <span className={`ml-1.5 text-xs ${isActive ? 'text-brand-200' : 'text-gray-400'}`}>
-                {formatTabDate(day.date)}
-              </span>
-            )}
+            Day {day.day_number}
           </button>
         )
       })}

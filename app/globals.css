@@ -3,25 +3,35 @@
 @tailwind utilities;
 
 @layer base {
-  * { -webkit-tap-highlight-color: transparent; }
-  body { @apply text-gray-900; }
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  body { font-size: 16px; line-height: 1.5; padding-bottom: 40px; }
 }
 
 @layer components {
   .btn-primary {
-    @apply w-full py-3.5 px-4 bg-brand-600 text-white font-semibold rounded-xl
-           active:bg-brand-700 transition-colors text-base min-h-[44px];
+    @apply w-full py-3.5 px-4 bg-sky text-white font-semibold rounded-card
+           active:opacity-90 transition-opacity text-base min-h-[44px] text-center;
   }
   .btn-secondary {
-    @apply w-full py-3.5 px-4 bg-white text-brand-600 font-semibold rounded-xl
-           border border-brand-200 active:bg-brand-50 transition-colors text-base min-h-[44px];
+    @apply w-full py-3.5 px-4 bg-white text-sky font-semibold rounded-card
+           border border-line active:bg-mist transition-colors text-base min-h-[44px] text-center;
   }
   .input-field {
-    @apply w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-base
-           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
-           placeholder-gray-400 min-h-[44px];
+    @apply w-full px-4 py-3 bg-white border border-line rounded-card text-base
+           focus:outline-none focus:ring-2 focus:ring-sky focus:border-transparent
+           min-h-[44px];
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-4;
+    @apply bg-white rounded-card shadow-card overflow-hidden;
+  }
+  .hero-chip {
+    @apply rounded-[20px] px-[14px] py-[5px] text-[13px] text-[#e0f2fe];
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.20);
+    backdrop-filter: blur(4px);
+  }
+  .stop-nav-btn {
+    @apply flex items-center gap-1 bg-sky-light text-sky text-[12px] font-semibold
+           px-2.5 py-1 rounded-lg active:bg-blue-200 no-underline;
   }
 }
