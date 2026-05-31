@@ -141,4 +141,29 @@ Key RLS rules: users can only read/write their own rows. Shared trips (`is_share
 ## Deployment
 
 Push `main` to Vercel. Required env vars must be set in Vercel project settings.
-Production branch: `main`
+Production branch: `main`---
+
+## Current state (as of June 2026)
+
+### What's built
+- All pages and API routes exist (login, register, setup, settings, trips list, new trip, trip viewer)
+- Claude streaming generation works end-to-end
+- NavigateButton deep-links to Google/Apple Maps
+- Supabase auth + RLS in place
+
+### What's NOT done yet
+- Trip generation UI (no loading/progress indicator while Claude streams)
+- No error handling UI if generation fails
+- Trip sharing (`is_shared`) not wired up in the UI
+- No editing of generated itinerary (stops are read-only)
+- PWA install prompt not implemented
+- No offline caching (service worker)
+
+### Known issues
+- None currently
+
+### Deployed to
+- Vercel: [your-app.vercel.app]
+- Supabase project: [your-project-ref].supabase.co
+
+

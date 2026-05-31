@@ -7,12 +7,20 @@ __pycache__/
 
 # Node
 node_modules/
+.next/
+
+# Env
+.env.local
+.env*.local
 
 # macOS
 .DS_Store
 
 # PyCharm
 .idea/
+
+# Claude Code
+.claude/
 
 # Word doc is a binary — regenerate with: node builders/build_word.js
 output/Scotland_Itinerary_2026.docx
