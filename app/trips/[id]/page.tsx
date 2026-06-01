@@ -31,7 +31,15 @@ export default function TripViewPage() {
     const res = await fetch(`/api/trips/${id}`)
     if (!res.ok) { if (res.status === 404) router.push('/trips'); return null }
     const data = await res.json()
-    setTrip(data.trip); setTripData(data.tripData); setLoading(false)
+    setTrip(data.trip)
+    setTripData(data.tripData)
+    setLoading(false)
+
+    // Default to today's day if the trip is currently active
+    const today = new Date().toISOString().split('T')[0]
+    const todayIdx = (data.tripData?.days || []).findIndex((d: Day) => d.date === today)
+    if (todayIdx >= 0) setActiveDay(todayIdx)
+
     const meRes = await fetch('/api/me')
     if (meRes.ok) { const me = await meRes.json(); setIsOwner(me.id === data.trip.owner_id) }
     return data.trip
@@ -103,7 +111,7 @@ export default function TripViewPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-mist flex items-center justify-center">
       <div className="text-center"><div className="text-4xl mb-3 animate-pulse">🗺️</div><p className="text-soft text-sm">Loading trip…</p></div>
@@ -114,7 +122,7 @@ export default function TripViewPage() {
   const days: Day[] = tripData?.days || []
   const currentDay  = days[activeDay]
 
-  // ── Generating ───────────────────────────────────────────────────────────────
+  // ── Generating ──────────────────────────────────────────────────────────────────────
   if (generating || trip.status === 'generating') return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: HERO_GRADIENT }}>
       <div className="text-center">
@@ -127,7 +135,7 @@ export default function TripViewPage() {
     </div>
   )
 
-  // ── Error ─────────────────────────────────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────────────────
   if (trip.status === 'error') return (
     <div className="min-h-screen bg-mist flex flex-col">
       <div className="px-5 pt-14 pb-5" style={{ background: DAY_GRADIENT }}>
@@ -144,7 +152,7 @@ export default function TripViewPage() {
     </div>
   )
 
-  // ── Main view ────────────────────────────────────────────────────────────────
+  // ── Main view ──────────────────────────────────────────────────────────────────────
   const dayRouteUrls  = currentDay ? buildDayRouteUrl(currentDay) : null
   const nonDriveCount = currentDay?.stops.filter(s => s.type !== 'drive').length || 0
   const driveMinutes  = currentDay?.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.drive_time_mins || 0), 0) || 0
