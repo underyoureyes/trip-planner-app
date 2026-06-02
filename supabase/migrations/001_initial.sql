@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id            uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name          text        NOT NULL DEFAULT '',
-  home_town     text,
+  home_tow1n     text,
   vehicle_name  text,
   vehicle_type  text        CHECK (vehicle_type IN ('car', 'campervan', 'motorhome', 'motorcycle')),
   is_admin      boolean     NOT NULL DEFAULT false,

@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    exclude: ['node_modules', 'e2e'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -19,6 +20,9 @@ export default defineConfig({
         'app/api/settings/route.ts',
         'app/api/settings/validate-key/route.ts',
         'app/api/trips/route.ts',
+        'app/api/trips/[id]/route.ts',
+        'app/api/trips/[id]/data/route.ts',
+        'app/api/trips/[id]/generate/route.ts',
       ],
       thresholds: {
         lines: 80,
