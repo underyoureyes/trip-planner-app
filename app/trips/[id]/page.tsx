@@ -8,6 +8,25 @@ import { buildRouteDayUrl } from '@/lib/navigation'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
 
+function DaySection({ emoji, title, content }: { emoji: string; title: string; content: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-card overflow-hidden border border-line bg-white">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-3 bg-card-bg active:bg-gray-100">
+        <span className="text-[13px] font-semibold text-ink">{emoji} {title}</span>
+        <span className={`text-line text-[10px] transition-transform ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && (
+        <div className="px-4 py-3 border-t border-line">
+          {content.split('\n').map((line, i) => (
+            <p key={i} className="text-[13px] text-soft leading-relaxed">{line}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const HERO_GRADIENT = 'linear-gradient(160deg, #1a1a2e 0%, #1e3a5f 55%, #2563a8 100%)'
 const DAY_GRADIENT  = 'linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%)'
 const HERO_TEXTURE  = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E")`
@@ -19,7 +38,9 @@ export default function TripViewPage() {
   const [trip,        setTrip]        = useState<Trip | null>(null)
   const [tripData,    setTripData]    = useState<TripData | null>(null)
   const [isOwner,     setIsOwner]     = useState(false)
+  const [profile,     setProfile]     = useState<{ vehicle_name?: string; vehicle_type?: string } | null>(null)
   const [activeDay,   setActiveDay]   = useState(0)
+  const [sosOpen,     setSosOpen]     = useState(false)
   const [loading,     setLoading]     = useState(true)
   const [generating,  setGenerating]  = useState(false)
   const [generateLog, setGenerateLog] = useState('')
@@ -41,7 +62,11 @@ export default function TripViewPage() {
     if (todayIdx >= 0) setActiveDay(todayIdx)
 
     const meRes = await fetch('/api/me')
-    if (meRes.ok) { const me = await meRes.json(); setIsOwner(me.id === data.trip.owner_id) }
+    if (meRes.ok) {
+      const me = await meRes.json()
+      setIsOwner(me.id === data.trip.owner_id)
+      if (me.profile) setProfile(me.profile)
+    }
     return data.trip
   }
 
@@ -156,6 +181,7 @@ export default function TripViewPage() {
   const dayRouteUrls  = currentDay ? buildDayRouteUrl(currentDay) : null
   const nonDriveCount = currentDay?.stops.filter(s => s.type !== 'drive').length || 0
   const driveMinutes  = currentDay?.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.drive_time_mins || 0), 0) || 0
+  const driveKm       = currentDay?.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0) || 0
 
   return (
     <div className="min-h-screen bg-mist">
@@ -190,6 +216,9 @@ export default function TripViewPage() {
           {tripData?.total_days     && <span className="hero-chip">{tripData.total_days} days</span>}
           {tripData?.total_distance_km && <span className="hero-chip">~{tripData.total_distance_km} km</span>}
           {tripData?.total_stops    && <span className="hero-chip">{tripData.total_stops} stops</span>}
+          {trip.intake_form?.num_travellers && <span className="hero-chip">👥 {trip.intake_form.num_travellers} {trip.intake_form.num_travellers === 1 ? 'traveller' : 'travellers'}</span>}
+          {profile?.vehicle_name    && <span className="hero-chip">🚗 {profile.vehicle_name}</span>}
+          {trip.intake_form?.pets   && <span className="hero-chip">🐾 {trip.intake_form.pets}</span>}
           {saving && <span className="hero-chip opacity-60 text-[11px]">Saving…</span>}
         </div>
       </div>
@@ -212,14 +241,30 @@ export default function TripViewPage() {
               Day {currentDay.day_number}{currentDay.date ? ` · ${new Date(currentDay.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}).toUpperCase()}` : ''}
             </p>
             <h2 className="font-serif text-[20px] text-white leading-snug mb-3">{currentDay.title || `Day ${currentDay.day_number}`}</h2>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
               {currentDay.overnight_location && (
                 <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🌙 <span className="text-white font-semibold">{currentDay.overnight_location}</span></div>
               )}
               {driveMinutes > 0 && (
-                <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🚗 <span className="text-white font-semibold">{Math.floor(driveMinutes/60)}h {driveMinutes%60}m driving</span></div>
+                <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🚗 <span className="text-white font-semibold">{Math.floor(driveMinutes/60)}h {driveMinutes%60}m{driveKm > 0 ? ` · ${Math.round(driveKm)} km` : ''}</span></div>
+              )}
+              {currentDay.walking_km != null && currentDay.walking_km > 0 && (
+                <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🚶 <span className="text-white font-semibold">{currentDay.walking_km} km walking</span></div>
+              )}
+              {currentDay.steps != null && currentDay.steps > 0 && (
+                <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">👟 <span className="text-white font-semibold">~{currentDay.steps.toLocaleString()} steps</span></div>
               )}
             </div>
+            {currentDay.overnight_location && (
+              <a
+                href={`https://www.google.com/search?q=weather+${encodeURIComponent(currentDay.overnight_location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-3 text-[12px] text-[#93c5fd] underline-offset-2 hover:text-white"
+              >
+                🌤️ Check weather in {currentDay.overnight_location}
+              </a>
+            )}
           </div>
 
           {/* Navigate route button */}
@@ -273,6 +318,11 @@ export default function TripViewPage() {
                       <p className="font-semibold text-[15px] text-ink">{place.name}</p>
                       <p className="text-[12px] text-soft capitalize">{place.meal_type}</p>
                       {place.description && <p className="text-[13px] text-soft mt-1">{place.description}</p>}
+                      {place.website && (
+                        <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-[12px] text-sky block mt-1 truncate">
+                          🔗 {place.website.replace(/^https?:\/\//, '')}
+                        </a>
+                      )}
                       {place.booking_required && <p className="text-[12px] font-semibold mt-1" style={{ color: '#e07b39' }}>⚠️ Booking recommended</p>}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
@@ -294,6 +344,41 @@ export default function TripViewPage() {
             <div className="rounded-card p-4 mb-3.5 border" style={{ background: '#fef3d0', borderColor: '#f0c040' }}>
               <p className="text-[12px] font-semibold tracking-[1px] uppercase mb-2" style={{ color: '#c9963a' }}>💡 Tips for Today</p>
               <p className="text-[13px] leading-relaxed" style={{ color: '#5a3e00' }}>{currentDay.notes}</p>
+            </div>
+          )}
+
+          {/* Extra sections (dog tips, cycling notes, etc.) */}
+          {currentDay.sections && currentDay.sections.length > 0 && (
+            <div className="space-y-2 mb-3.5">
+              {currentDay.sections.map((section, i) => (
+                <DaySection key={i} emoji={section.emoji} title={section.title} content={section.content} />
+              ))}
+            </div>
+          )}
+
+          {/* Emergency / SOS contacts */}
+          {tripData?.emergency_contacts && tripData.emergency_contacts.length > 0 && (
+            <div className="rounded-card mb-3.5 overflow-hidden border border-red-200">
+              <button
+                onClick={() => setSosOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
+              >
+                <span className="text-[13px] font-semibold text-red-700">🆘 Emergency &amp; SOS contacts</span>
+                <span className={`text-line text-[10px] transition-transform ${sosOpen ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+              {sosOpen && (
+                <div className="divide-y divide-red-100">
+                  {tripData.emergency_contacts.map((c, i) => (
+                    <div key={i} className="px-4 py-3 bg-white">
+                      <p className="font-semibold text-[14px] text-ink">{c.name}</p>
+                      <p className="text-[11px] text-soft uppercase tracking-wide mb-1">{c.type}</p>
+                      {c.phone && <a href={`tel:${c.phone}`} className="text-[13px] text-sky block">📞 {c.phone}</a>}
+                      {c.address && <p className="text-[12px] text-soft mt-0.5">📍 {c.address}</p>}
+                      {c.notes && <p className="text-[12px] text-soft mt-0.5 italic">{c.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

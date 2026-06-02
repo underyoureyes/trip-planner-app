@@ -5,5 +5,6 @@ export async function GET() {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  return NextResponse.json({ id: user.id, email: user.email })
+  const { data: profile } = await supabase.from('profiles').select('name,vehicle_name,vehicle_type').eq('id', user.id).single()
+  return NextResponse.json({ id: user.id, email: user.email, profile: profile || null })
 }

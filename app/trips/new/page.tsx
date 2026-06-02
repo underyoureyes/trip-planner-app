@@ -16,7 +16,7 @@ export default function NewTripPage() {
     num_travellers: 2, interests: [], accommodation_style: 'mix',
     budget_per_day_gbp: 150, driving_max_hours: 4,
     preferred_check_in: '15:00', preferred_check_out: '10:00',
-    must_include: '', notes: '',
+    must_include: '', notes: '', pets: '',
   })
 
   const interestOptions = [
@@ -179,6 +179,12 @@ export default function NewTripPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Must-include stops</label>
             <textarea value={form.must_include} onChange={e => setForm(f => ({ ...f, must_include: e.target.value }))}
               className="input-field resize-none" rows={3} placeholder="e.g. Loch Ness, Glencoe, Isle of Skye" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">🐾 Travelling with pets? <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input type="text" value={form.pets} onChange={e => setForm(f => ({ ...f, pets: e.target.value }))}
+              className="input-field" placeholder="e.g. 2 dogs" />
+            <p className="text-xs text-gray-400 mt-1">Claude will mark dog-friendly stops and include vet contacts</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Other notes <span className="text-gray-400 font-normal">(optional)</span></label>

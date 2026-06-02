@@ -32,10 +32,11 @@ export default function StopCard({ stop, index, isFirst=false, isLast=false, onD
   const [expanded, setExpanded]   = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  const icon      = ICONS[stop.type] || '📍'
-  const isDrive   = stop.type === 'drive'
+  const icon        = ICONS[stop.type] || '📍'
+  const isDrive     = stop.type === 'drive'
   const isSuggested = stop.suggested === true
-  const hasDetail = !!(stop.description || stop.booking_ref || stop.address || stop.phone || stop.website || stop.notes)
+  const isDogFriendly = stop.dog_friendly === true
+  const hasDetail   = !!(stop.description || stop.booking_ref || stop.address || stop.phone || stop.website || stop.notes)
 
   function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
@@ -60,9 +61,10 @@ export default function StopCard({ stop, index, isFirst=false, isLast=false, onD
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            {isSuggested && (
-              <span className="inline-block text-[10px] bg-sky-light text-sky px-2 py-0.5 rounded-full font-semibold mb-1">✨ Optional</span>
-            )}
+            <div className="flex flex-wrap gap-1 mb-1">
+              {isSuggested  && <span className="inline-block text-[10px] bg-sky-light text-sky px-2 py-0.5 rounded-full font-semibold">✨ Optional</span>}
+              {isDogFriendly && <span className="inline-block text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-semibold border border-green-200">🐾 Dog friendly</span>}
+            </div>
             <p className="font-semibold text-[15px] text-ink leading-snug mb-0.5">{stop.name}</p>
             {isDrive && stop.drive_time_mins != null && (
               <p className="text-[13px] text-soft">

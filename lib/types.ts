@@ -15,6 +15,7 @@ export interface IntakeForm {
   preferred_check_out?: string   // e.g. "10:00"
   must_include?: string
   notes?: string
+  pets?: string                  // e.g. "2 dogs" — drives dog-friendly tagging & vet contacts
 }
 
 // ── Trip Stop & Day ───────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ export interface Stop {
   notes?: string
   duration_mins?: number
   suggested?: boolean            // Claude-suggested optional stop; user can remove
+  dog_friendly?: boolean         // stop explicitly welcomes dogs
   // Drive stops
   drive_time_mins?: number
   distance_km?: number
@@ -54,6 +56,20 @@ export interface Eating {
   suggested?: boolean
 }
 
+export interface DaySection {
+  emoji: string
+  title: string
+  content: string
+}
+
+export interface EmergencyContact {
+  name: string
+  type: 'vet' | 'hospital' | 'police' | 'pharmacy' | 'breakdown' | 'other'
+  phone?: string
+  address?: string
+  notes?: string
+}
+
 export interface Day {
   day_number: number
   date?: string
@@ -62,6 +78,10 @@ export interface Day {
   stops: Stop[]
   eating?: Eating[]
   notes?: string
+  steps?: number               // estimated steps for the day
+  walking_km?: number          // estimated walking distance km
+  activity_badges?: string[]   // e.g. ["🏰", "🌿", "🥃"] shown on day tab
+  sections?: DaySection[]      // extra categorised notes (dog tips, cycling, etc.)
 }
 
 export interface TripData {
@@ -70,6 +90,7 @@ export interface TripData {
   total_distance_km?: number
   total_stops?: number
   days: Day[]
+  emergency_contacts?: EmergencyContact[]
 }
 
 // ── Trip Record (DB) ──────────────────────────────────────────────────────────

@@ -17,7 +17,12 @@ CRITICAL RULES:
 - All website URLs must be real https:// links or null — no invented URLs
 - Hotel stops MUST include check_in and check_out times matching the traveller's preferences
 - Mark genuinely optional bonus stops with "suggested": true — these are extras the user may skip
-- Required stops (hotel, fuel, must-visit places) must have "suggested": false or omit the field`
+- Required stops (hotel, fuel, must-visit places) must have "suggested": false or omit the field
+- Mark stops that explicitly welcome dogs with "dog_friendly": true (beaches, parks, pubs, dog-friendly cafes)
+- For each day set "activity_badges" to 1-3 emoji that characterise the day (e.g. ["🏰","🌿"] for a heritage/nature day)
+- Estimate "steps" (integer) and "walking_km" (number) per day based on planned activities
+- Add "sections" for any day that warrants extra categorised notes (dog tips, cycling notes, tide times, etc.)
+- Include "emergency_contacts" at trip level: always add local hospitals and police; add vets if pets are travelling`
 
 export function buildTripPrompt(form: IntakeForm): string {
   const startMs = new Date(form.start_date).getTime()
@@ -40,6 +45,7 @@ BUDGET: £${form.budget_per_day_gbp}/day per person
 MAX DRIVING: ${form.driving_max_hours}h/day
 PREFERRED CHECK-IN: ${checkIn} (use this time for all hotel check_in fields)
 PREFERRED CHECK-OUT: ${checkOut} (use this time for all hotel check_out fields)
+${form.pets ? `PETS: ${form.pets} — mark dog-friendly stops, include vet emergency contacts` : ''}
 ${form.must_include ? `MUST INCLUDE: ${form.must_include}` : ''}
 ${form.notes ? `NOTES: ${form.notes}` : ''}
 
@@ -62,6 +68,9 @@ Output exactly this JSON structure:
       "date": "${form.start_date}",
       "title": "<catchy day title>",
       "overnight_location": "<town name>",
+      "activity_badges": ["<emoji1>", "<emoji2>"],
+      "steps": <estimated steps as integer e.g. 8000>,
+      "walking_km": <estimated walking km e.g. 5.5>,
       "stops": [
         {
           "name": "<stop name>",
@@ -72,6 +81,7 @@ Output exactly this JSON structure:
           "website": "<real https:// url or null>",
           "duration_mins": <minutes at this stop, 0 for drives>,
           "suggested": <true for optional extras, false or omit for required stops>,
+          "dog_friendly": <true if dogs explicitly welcome, omit otherwise>,
           "drive_time_mins": <only for type=drive>,
           "distance_km": <only for type=drive>,
           "check_in": "<only for type=hotel, e.g. ${checkIn}>",
@@ -91,7 +101,23 @@ Output exactly this JSON structure:
           "suggested": <true for optional, false for recommended>
         }
       ],
-      "notes": "<general day tips or null>"
+      "notes": "<general day tips or null>",
+      "sections": [
+        {
+          "emoji": "<single emoji>",
+          "title": "<section title e.g. Dog Tips, Cycling Notes, Tide Times>",
+          "content": "<paragraph or newline-separated tips>"
+        }
+      ]
+    }
+  ],
+  "emergency_contacts": [
+    {
+      "name": "<name of service e.g. Inverness Hospital>",
+      "type": "<vet|hospital|police|pharmacy|breakdown|other>",
+      "phone": "<phone number>",
+      "address": "<address or null>",
+      "notes": "<any relevant note or null>"
     }
   ]
 }`
