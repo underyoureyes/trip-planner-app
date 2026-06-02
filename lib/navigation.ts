@@ -6,7 +6,8 @@ export function buildNavigateUrl(destination: string): {
   apple: string
   web: string
 } {
-  const encoded = encodeURIComponent(destination)
+  const dest = destination || ''
+  const encoded = encodeURIComponent(dest)
   return {
     google: `comgooglemaps://?daddr=${encoded}&directionsmode=driving`,
     apple: `maps://maps.apple.com/?daddr=${encoded}&dirflg=d`,
@@ -19,19 +20,17 @@ export function buildRouteDayUrl(waypoints: string[]): {
   apple: string
   web: string
 } {
-  if (waypoints.length === 0) return buildNavigateUrl('')
-  const [start, ...rest] = waypoints
-  const dest = rest[rest.length - 1] || start
-  const vias = rest.slice(0, -1)
+  const valid = waypoints.filter(Boolean)
+  if (valid.length === 0) return buildNavigateUrl('')
+  const [start, ...rest] = valid
 
-  const encodedDest = encodeURIComponent(dest)
-  const googleWaypoints = waypoints.map(encodeURIComponent).join('+to:')
-  const appleWaypoints = waypoints.map(encodeURIComponent).join('+to:')
+  const googleWaypoints = valid.map(encodeURIComponent).join('+to:')
+  const appleWaypoints  = valid.map(encodeURIComponent).join('+to:')
 
   return {
     google: `comgooglemaps://?saddr=${encodeURIComponent(start)}&daddr=${googleWaypoints}&directionsmode=driving`,
     apple: `maps://maps.apple.com/?saddr=${encodeURIComponent(start)}&daddr=${appleWaypoints}`,
-    web: `https://www.google.com/maps/dir/${waypoints.map(encodeURIComponent).join('/')}`,
+    web: `https://www.google.com/maps/dir/${valid.map(encodeURIComponent).join('/')}`,
   }
 }
 

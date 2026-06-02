@@ -54,6 +54,16 @@ describe('StopCard', () => {
     expect(screen.queryByText(/Optional/)).not.toBeInTheDocument()
   })
 
+  it('shows dog friendly badge for dog_friendly stops', () => {
+    render(<StopCard stop={{ ...sightseeing, dog_friendly: true }} index={0} />)
+    expect(screen.getByText(/Dog friendly/)).toBeInTheDocument()
+  })
+
+  it('does not show dog friendly badge when dog_friendly is false', () => {
+    render(<StopCard stop={sightseeing} index={0} />)
+    expect(screen.queryByText(/Dog friendly/)).not.toBeInTheDocument()
+  })
+
   it('shows duration for non-drive stops', () => {
     render(<StopCard stop={sightseeing} index={0} />)
     expect(screen.getByText(/2h/)).toBeInTheDocument()

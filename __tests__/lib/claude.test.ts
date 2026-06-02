@@ -78,6 +78,16 @@ describe('buildTripPrompt', () => {
     expect(prompt).toContain('Dog-friendly stops')
   })
 
+  it('includes pets when provided', () => {
+    const prompt = buildTripPrompt({ ...sampleForm, pets: '2 dogs' })
+    expect(prompt).toContain('2 dogs')
+  })
+
+  it('omits pets line when not provided', () => {
+    const prompt = buildTripPrompt({ ...sampleForm, pets: undefined })
+    expect(prompt).not.toContain('PETS:')
+  })
+
   it('calculates days from dates', () => {
     const form = { ...sampleForm, start_date: '2026-07-01', end_date: '2026-07-03' }
     const prompt = buildTripPrompt(form)
