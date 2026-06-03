@@ -4,7 +4,7 @@ import type { Day } from '@/lib/types'
 
 interface Props {
   days: Day[]
-  activeIndex: number
+  activeIndex: number   // -1 = overview, 0..n-1 = day
   onSelect: (index: number) => void
 }
 
@@ -26,7 +26,6 @@ function deriveBadges(day: Day): string[] {
 }
 
 export default function DayTabs({ days, activeIndex, onSelect }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -35,13 +34,28 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
 
   return (
     <div
-      ref={scrollRef}
       className="flex gap-2 overflow-x-auto px-3 py-2.5"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
     >
+      {/* Overview tab */}
+      <button
+        ref={activeIndex === -1 ? activeRef : undefined}
+        onClick={() => onSelect(-1)}
+        className="flex-shrink-0 rounded-[20px] text-[13px] font-semibold whitespace-nowrap transition-all flex flex-col items-center"
+        style={activeIndex === -1
+          ? { background: '#2563a8', color: '#fff', padding: '6px 15px 5px', boxShadow: '0 2px 8px rgba(37,99,168,0.30)' }
+          : { background: '#e8edf5', color: '#475569', padding: '6px 15px 5px' }
+        }
+      >
+        <span>Overview</span>
+        <span className="text-[10px] leading-none mt-0.5 opacity-80">📋</span>
+      </button>
+
+      {/* Day tabs */}
       {days.map((day, i) => {
-        const isActive = i === activeIndex
-        const badges = deriveBadges(day)
+        const isActive    = i === activeIndex
+        const isHighlight = day.highlight === true
+        const badges      = deriveBadges(day)
         return (
           <button
             key={i}
@@ -49,7 +63,14 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
             onClick={() => onSelect(i)}
             className="flex-shrink-0 rounded-[20px] text-[13px] font-semibold whitespace-nowrap transition-all flex flex-col items-center"
             style={isActive
-              ? { background: '#2563a8', color: '#fff', padding: '6px 15px 5px', boxShadow: '0 2px 8px rgba(37,99,168,0.30)' }
+              ? {
+                  background: isHighlight ? '#c9963a' : '#2563a8',
+                  color: '#fff',
+                  padding: '6px 15px 5px',
+                  boxShadow: isHighlight
+                    ? '0 2px 8px rgba(201,150,58,0.40)'
+                    : '0 2px 8px rgba(37,99,168,0.30)',
+                }
               : { background: '#e8edf5', color: '#475569', padding: '6px 15px 5px' }
             }
           >

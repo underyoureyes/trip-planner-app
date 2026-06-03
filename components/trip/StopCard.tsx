@@ -28,15 +28,18 @@ const ICONS: Record<string, string> = {
   castle:'🏰', distillery:'🥃', museum:'🏛️', fuel:'⛽', other:'📍',
 }
 
-export default function StopCard({ stop, index, isFirst=false, isLast=false, onDelete, isOwner=false }: Props) {
-  const [expanded, setExpanded]   = useState(false)
+export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false }: Props) {
   const [confirming, setConfirming] = useState(false)
 
-  const icon        = ICONS[stop.type] || '📍'
-  const isDrive     = stop.type === 'drive'
-  const isSuggested = stop.suggested === true
+  const icon          = ICONS[stop.type] || '📍'
+  const isDrive       = stop.type === 'drive'
+  const isSuggested   = stop.suggested === true
   const isDogFriendly = stop.dog_friendly === true
-  const hasDetail   = !!(stop.description || stop.booking_ref || stop.address || stop.phone || stop.website || stop.notes)
+  const websiteLabel  = stop.website_label || 'Website'
+
+  const navigateUrl = !isDrive
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address || stop.name)}`
+    : null
 
   function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
@@ -46,7 +49,7 @@ export default function StopCard({ stop, index, isFirst=false, isLast=false, onD
 
   return (
     <div className="flex items-stretch">
-      {/* Timeline */}
+      {/* Timeline dot + connector */}
       <div className="w-[60px] flex-shrink-0 flex flex-col items-center pt-[14px]">
         <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[15px] flex-shrink-0 relative z-10 ${dotClass(stop.type, isFirst, isLast)}`}>
           {icon}
@@ -55,73 +58,89 @@ export default function StopCard({ stop, index, isFirst=false, isLast=false, onD
       </div>
 
       {/* Content */}
-      <div
-        className={`flex-1 py-3 pr-4 ${!isLast ? 'border-b border-line' : ''} ${hasDetail ? 'cursor-pointer' : ''}`}
-        onClick={() => hasDetail && setExpanded(!expanded)}
-      >
+      <div className={`flex-1 py-3 pr-4 ${!isLast ? 'border-b border-line' : ''}`}>
+
+        {/* Name row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap gap-1 mb-1">
-              {isSuggested  && <span className="inline-block text-[10px] bg-sky-light text-sky px-2 py-0.5 rounded-full font-semibold">✨ Optional</span>}
-              {isDogFriendly && <span className="inline-block text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-semibold border border-green-200">🐾 Dog friendly</span>}
-            </div>
-            <p className="font-semibold text-[15px] text-ink leading-snug mb-0.5">{stop.name}</p>
-            {isDrive && stop.drive_time_mins != null && (
-              <p className="text-[13px] text-soft">
-                {Math.floor(stop.drive_time_mins/60)}h {stop.drive_time_mins%60}m
-                {stop.distance_km ? ` · ${stop.distance_km} km` : ''}
-              </p>
-            )}
-            {!isDrive && stop.duration_mins != null && (
-              <p className="text-[13px] text-soft">
-                ⏱ {stop.duration_mins < 60 ? `${stop.duration_mins}m` : `${Math.floor(stop.duration_mins/60)}h ${stop.duration_mins%60}m`}
-              </p>
-            )}
-            {stop.type === 'hotel' && stop.check_in && (
-              <p className="text-[12px] text-soft">Check-in {stop.check_in} · Out {stop.check_out}</p>
-            )}
-            {stop.description && !expanded && (
-              <p className="text-[13px] text-soft mt-1 line-clamp-2 leading-snug">{stop.description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
-            {!isDrive && stop.address && (
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}&travelmode=driving`}
-                className="stop-nav-btn"
-                onClick={e => e.stopPropagation()}
-              >🗺️ Nav</a>
-            )}
-            {isOwner && !isDrive && (
-              <button
-                onClick={handleDelete}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-colors ${
-                  confirming ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 active:bg-red-100 active:text-red-500'
-                }`}
-              >{confirming ? '✓' : '×'}</button>
-            )}
-            {hasDetail && (
-              <span className={`text-line text-[10px] inline-block select-none transition-transform ${expanded ? 'rotate-180' : ''}`}>▼</span>
-            )}
-          </div>
-        </div>
-
-        {expanded && hasDetail && (
-          <div className="mt-2 space-y-1.5">
-            {stop.description && <p className="text-[13px] text-soft leading-snug">{stop.description}</p>}
-            {stop.address    && <p className="text-[12px] text-soft">📍 {stop.address}</p>}
-            {stop.phone      && <a href={`tel:${stop.phone}`} className="text-[12px] text-sky block">📞 {stop.phone}</a>}
-            {stop.website    && (
-              <a href={stop.website} target="_blank" rel="noopener noreferrer" className="text-[12px] text-sky block truncate">
-                🔗 {stop.website.replace(/^https?:\/\//, '')}
-              </a>
-            )}
-            {stop.booking_ref && <p className="text-[12px] font-mono text-ink">🎟️ {stop.booking_ref}</p>}
-            {stop.notes && (
-              <div className="bg-gold-pale border border-[#f0c040] rounded-lg p-2.5 mt-1">
-                <p className="text-[12px]" style={{ color: '#5a3e00' }}>{stop.notes}</p>
+            {(isSuggested || isDogFriendly) && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {isSuggested   && <span className="inline-block text-[10px] bg-sky-light text-sky px-2 py-0.5 rounded-full font-semibold">✨ Optional</span>}
+                {isDogFriendly && <span className="inline-block text-[10px] bg-[#d8f3dc] text-[#2d6a4f] px-2 py-0.5 rounded-full font-semibold border border-[#b7e4c7]">🐾 Dog friendly</span>}
               </div>
             )}
+            <p className="font-semibold text-[15px] text-ink leading-snug">{stop.name}</p>
+          </div>
+          {isOwner && !isDrive && (
+            <button
+              onClick={handleDelete}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-colors flex-shrink-0 mt-0.5 ${
+                confirming ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 active:bg-red-100 active:text-red-500'
+              }`}
+            >{confirming ? '✓' : '×'}</button>
+          )}
+        </div>
+
+        {/* Drive stats */}
+        {isDrive && stop.drive_time_mins != null && (
+          <p className="text-[13px] text-soft mt-0.5">
+            {Math.floor(stop.drive_time_mins/60)}h {stop.drive_time_mins%60}m
+            {stop.distance_km ? ` · ${stop.distance_km} km` : ''}
+          </p>
+        )}
+
+        {/* Duration */}
+        {!isDrive && stop.duration_mins != null && (
+          <p className="text-[13px] text-soft mt-0.5">
+            ⏱ {stop.duration_mins < 60 ? `${stop.duration_mins}m` : `${Math.floor(stop.duration_mins/60)}h ${stop.duration_mins%60}m`}
+          </p>
+        )}
+
+        {/* Hotel check-in/out */}
+        {stop.type === 'hotel' && stop.check_in && (
+          <p className="text-[12px] text-soft mt-0.5">Check-in {stop.check_in} · Out {stop.check_out}</p>
+        )}
+
+        {/* Description */}
+        {stop.description && (
+          <p className="text-[13px] text-soft leading-snug mt-1.5">{stop.description}</p>
+        )}
+
+        {/* Address */}
+        {stop.address && (
+          <p className="text-[12px] text-soft mt-1">📍 {stop.address}</p>
+        )}
+
+        {/* Booking ref */}
+        {stop.booking_ref && (
+          <p className="text-[12px] font-mono text-ink mt-1">🎟️ {stop.booking_ref}</p>
+        )}
+
+        {/* Action pills */}
+        {!isDrive && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {navigateUrl && (
+              <a href={navigateUrl} className="stop-nav-btn">
+                📍 Navigate
+              </a>
+            )}
+            {stop.website && (
+              <a href={stop.website} target="_blank" rel="noopener noreferrer" className="stop-link-green">
+                🌐 {websiteLabel}
+              </a>
+            )}
+            {stop.phone && (
+              <a href={`tel:${stop.phone}`} className="stop-nav-btn">
+                📞 Call
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Notes gold box */}
+        {stop.notes && (
+          <div className="bg-gold-pale border border-[#f0c040] rounded-lg p-2.5 mt-2">
+            <p className="text-[12px]" style={{ color: '#5a3e00' }}>{stop.notes}</p>
           </div>
         )}
       </div>

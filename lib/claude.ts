@@ -22,7 +22,10 @@ CRITICAL RULES:
 - For each day set "activity_badges" to 1-3 emoji that characterise the day (e.g. ["🏰","🌿"] for a heritage/nature day)
 - Estimate "steps" (integer) and "walking_km" (number) per day based on planned activities
 - Add "sections" for any day that warrants extra categorised notes (dog tips, cycling notes, tide times, etc.)
-- Include "emergency_contacts" at trip level: always add local hospitals and police; add vets if pets are travelling`
+- Include "emergency_contacts" at trip level: always add local hospitals and police; add vets if pets are travelling
+- Set "website_label" on stops to "Book" for accommodation/tours that need reservations, "Reserve" for restaurants, "Website" for general info, or omit for null
+- Set "cost" on eating items to estimated cost per person e.g. "~£15pp", "Free", "€30-40pp"
+- Mark 1-2 days as "highlight": true — the most special or scenic day(s) of the trip (shown in gold in the app)`
 
 export function buildTripPrompt(form: IntakeForm): string {
   const startMs = new Date(form.start_date).getTime()
@@ -69,6 +72,7 @@ Output exactly this JSON structure:
       "title": "<catchy day title>",
       "overnight_location": "<town name>",
       "activity_badges": ["<emoji1>", "<emoji2>"],
+      "highlight": <true for the 1-2 most special/scenic days, omit or false otherwise>,
       "steps": <estimated steps as integer e.g. 8000>,
       "walking_km": <estimated walking km e.g. 5.5>,
       "stops": [
@@ -79,6 +83,7 @@ Output exactly this JSON structure:
           "address": "<full address or town, region>",
           "phone": "<phone number or null>",
           "website": "<real https:// url or null>",
+          "website_label": "<'Book'|'Reserve'|'Website' or omit if no website>",
           "duration_mins": <minutes at this stop, 0 for drives>,
           "suggested": <true for optional extras, false or omit for required stops>,
           "dog_friendly": <true if dogs explicitly welcome, omit otherwise>,
@@ -98,7 +103,8 @@ Output exactly this JSON structure:
           "address": "<address>",
           "website": "<https:// url or null>",
           "booking_required": <true|false>,
-          "suggested": <true for optional, false for recommended>
+          "suggested": <true for optional, false for recommended>,
+          "cost": "<estimated cost per person e.g. '~£15pp', 'Free', or null>"
         }
       ],
       "notes": "<general day tips or null>",

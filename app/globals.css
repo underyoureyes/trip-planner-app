@@ -31,7 +31,19 @@
     backdrop-filter: blur(4px);
   }
   .stop-nav-btn {
-    @apply flex items-center gap-1 bg-sky-light text-sky text-[12px] font-semibold
+    @apply inline-flex items-center gap-1 bg-sky-light text-sky text-[12px] font-semibold
            px-2.5 py-1 rounded-lg active:bg-blue-200 no-underline;
+  }
+  .stop-link-green {
+    @apply inline-flex items-center gap-1 text-[12px] font-semibold
+           px-2.5 py-1 rounded-lg no-underline;
+    background: #d8f3dc;
+    color: #2d6a4f;
+  }
+  .stop-link-green:active { background: #b7e4c7; }
+  .map-tip {
+    @apply rounded-lg px-3 py-2.5 mb-3.5 text-[12px] leading-snug;
+    background: #f0f4fa;
+    border-left: 3px solid #2563a8;
   }
 }

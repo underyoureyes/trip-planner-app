@@ -33,6 +33,7 @@ export interface Stop {
   address?: string
   phone?: string
   website?: string
+  website_label?: string         // "Book" | "Website" | "Reserve" | "Tide times" etc.
   booking_ref?: string
   notes?: string
   duration_mins?: number
@@ -54,6 +55,7 @@ export interface Eating {
   website?: string
   booking_required?: boolean
   suggested?: boolean
+  cost?: string                  // e.g. "~£15pp", "Free", "€30-40pp"
 }
 
 export interface DaySection {
@@ -82,6 +84,7 @@ export interface Day {
   walking_km?: number          // estimated walking distance km
   activity_badges?: string[]   // e.g. ["🏰", "🌿", "🥃"] shown on day tab
   sections?: DaySection[]      // extra categorised notes (dog tips, cycling, etc.)
+  highlight?: boolean          // featured/special day — shows gold badge in overview + tabs
 }
 
 export interface TripData {
