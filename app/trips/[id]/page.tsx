@@ -298,14 +298,21 @@ export default function TripViewPage() {
     await saveData(updated)
   }, [tripData, saveData])
 
-  function buildDayRouteUrl(day: Day) {
-    const wpts = day.stops.filter(s => s.type !== 'drive' && (s.address || s.name)).map(s => s.address || s.name)
-    if (wpts.length === 0) {
+  function buildDayRouteUrl(day: Day, startLocation?: string) {
+    const stops = day.stops
+      .filter(s => s.type !== 'drive' && (s.address || s.name))
+      .map(s => (s.address || s.name) as string)
+
+    if (stops.length === 0) {
+      // Fall back to navigating to the overnight location only
       if (!day.overnight_location) return null
       const enc = encodeURIComponent(day.overnight_location)
       return { google: `comgooglemaps://?daddr=${enc}&directionsmode=driving`, apple: `maps://maps.apple.com/?daddr=${enc}&dirflg=d`, web: `https://www.google.com/maps/dir/?api=1&destination=${enc}&travelmode=driving` }
     }
-    return buildRouteDayUrl(wpts as string[])
+
+    // Prepend the day's starting location so Google Maps knows the origin
+    const wpts = startLocation ? [startLocation, ...stops] : stops
+    return buildRouteDayUrl(wpts)
   }
 
   useEffect(() => {
@@ -357,7 +364,11 @@ export default function TripViewPage() {
 
   // ── Main view ─────────────────────────────────────────────────────────────────
   const currentDay    = activeDay >= 0 ? days[activeDay] : undefined
-  const dayRouteUrls  = currentDay ? buildDayRouteUrl(currentDay) : null
+  // Day starts where the previous night ended; Day 1 starts at the trip origin
+  const startLocation = activeDay === 0
+    ? (trip.intake_form?.origin || undefined)
+    : (days[activeDay - 1]?.overnight_location || undefined)
+  const dayRouteUrls  = currentDay ? buildDayRouteUrl(currentDay, startLocation) : null
   const nonDriveCount = currentDay?.stops.filter(s => s.type !== 'drive').length || 0
   const driveMinutes  = currentDay?.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.drive_time_mins || 0), 0) || 0
   const driveKm       = currentDay?.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0) || 0
@@ -460,7 +471,9 @@ export default function TripViewPage() {
               <span className="text-[22px]">🗺️</span>
               <div className="text-left leading-snug">
                 <span className="block">Open Route in Maps</span>
-                <span className="block text-[12px] font-normal opacity-85">{nonDriveCount} stops · opens Google Maps</span>
+                <span className="block text-[12px] font-normal opacity-85">
+                  {startLocation ? `From ${startLocation.split(',')[0]} · ` : ''}{nonDriveCount} stops · opens Google Maps
+                </span>
               </div>
             </a>
           )}
