@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { Trip, TripData, Day, Eating, DaySection } from '@/lib/types'
+import type { Trip, TripData, Day, Eating, DaySection, Stop } from '@/lib/types'
 import { buildRouteDayUrl } from '@/lib/navigation'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
+import AddStopSheet from '@/components/trip/AddStopSheet'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -162,14 +163,17 @@ export default function TripViewPage() {
   const [tripData,   setTripData]   = useState<TripData | null>(null)
   const [isOwner,    setIsOwner]    = useState(false)
   const [profile,    setProfile]    = useState<{ vehicle_name?: string; vehicle_type?: string } | null>(null)
-  const [activeDay,  setActiveDay]  = useState<number>(-1)   // -1 = overview
-  const [sosOpen,    setSosOpen]    = useState(false)
-  const [loading,    setLoading]    = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [generateLog,setGenerateLog]= useState('')
-  const [error,      setError]      = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const startedRef = useRef(false)
+  const [activeDay,    setActiveDay]    = useState<number>(-1)   // -1 = overview
+  const [sosOpen,      setSosOpen]      = useState(false)
+  const [loading,      setLoading]      = useState(true)
+  const [generating,   setGenerating]   = useState(false)
+  const [generateLog,  setGenerateLog]  = useState('')
+  const [error,        setError]        = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [addSheetOpen, setAddSheetOpen] = useState(false)
+  const [lastDeleted,  setLastDeleted]  = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startedRef   = useRef(false)
 
   async function loadTrip() {
     const res = await fetch(`/api/trips/${id}`)
@@ -218,8 +222,15 @@ export default function TripViewPage() {
     setGenerating(false); loadTrip()
   }
 
+  const saveData = useCallback(async (data: TripData) => {
+    setSaving(true)
+    try { await fetch(`/api/trips/${id}/data`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }) }
+    finally { setSaving(false) }
+  }, [id])
+
   const handleDeleteStop = useCallback(async (dayIndex: number, stopIndex: number) => {
     if (!tripData) return
+    const deletedStop = tripData.days[dayIndex].stops[stopIndex]
     const updated: TripData = {
       ...tripData,
       days: tripData.days.map((day, di) =>
@@ -227,10 +238,53 @@ export default function TripViewPage() {
       ),
       total_stops: Math.max(0, (tripData.total_stops || 0) - 1),
     }
-    setTripData(updated); setSaving(true)
-    try { await fetch(`/api/trips/${id}/data`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) }) }
-    finally { setSaving(false) }
-  }, [tripData, id])
+    setTripData(updated)
+    await saveData(updated)
+    // Set undo window
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    setLastDeleted({ stop: deletedStop, dayIdx: dayIndex, stopIdx: stopIndex })
+    undoTimerRef.current = setTimeout(() => setLastDeleted(null), 5000)
+  }, [tripData, saveData])
+
+  const handleUndo = useCallback(async () => {
+    if (!lastDeleted || !tripData) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    const { stop, dayIdx, stopIdx } = lastDeleted
+    setLastDeleted(null)
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) => {
+        if (di !== dayIdx) return day
+        const stops = [...day.stops]
+        stops.splice(Math.min(stopIdx, stops.length), 0, stop)
+        return { ...day, stops }
+      }),
+      total_stops: (tripData.total_stops || 0) + 1,
+    }
+    setTripData(updated)
+    await saveData(updated)
+  }, [lastDeleted, tripData, saveData])
+
+  const handleAddStop = useCallback(async (stop: Stop) => {
+    if (!tripData) return
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) => {
+        if (di !== activeDay) return day
+        const stops = [...day.stops]
+        // Insert before the hotel stop, or at the end
+        let insertAt = stops.length
+        for (let i = stops.length - 1; i >= 0; i--) {
+          if (stops[i].type === 'hotel') { insertAt = i; break }
+        }
+        stops.splice(insertAt, 0, stop)
+        return { ...day, stops }
+      }),
+      total_stops: (tripData.total_stops || 0) + 1,
+    }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, activeDay, saveData])
 
   const handleDeleteEating = useCallback(async (dayIndex: number, eatIndex: number) => {
     if (!tripData) return
@@ -240,10 +294,9 @@ export default function TripViewPage() {
         di !== dayIndex ? day : { ...day, eating: (day.eating || []).filter((_, ei) => ei !== eatIndex) }
       ),
     }
-    setTripData(updated); setSaving(true)
-    try { await fetch(`/api/trips/${id}/data`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) }) }
-    finally { setSaving(false) }
-  }, [tripData, id])
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
 
   function buildDayRouteUrl(day: Day) {
     const wpts = day.stops.filter(s => s.type !== 'drive' && (s.address || s.name)).map(s => s.address || s.name)
@@ -436,8 +489,16 @@ export default function TripViewPage() {
           {/* Stops */}
           {currentDay.stops.length > 0 && (
             <div className="bg-white rounded-card mb-3.5" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
-              <div className="bg-card-bg border-b border-line px-4 py-2.5">
+              <div className="bg-card-bg border-b border-line px-4 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold tracking-[1.5px] uppercase text-soft">Stops &amp; Places of Interest</span>
+                {isOwner && (
+                  <button
+                    onClick={() => setAddSheetOpen(true)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xl leading-none font-bold active:opacity-80"
+                    style={{ background: '#2563a8', lineHeight: 1 }}
+                    title="Add a stop"
+                  >+</button>
+                )}
               </div>
               <div className="pt-1 pb-1">
                 {currentDay.stops.map((stop, i) => (
@@ -527,6 +588,33 @@ export default function TripViewPage() {
             {activeDay < days.length-1 && <button onClick={() => setActiveDay(activeDay+1)} className="btn-primary flex-1">Day {activeDay+2} →</button>}
           </div>
         </div>
+      )}
+
+      {/* ── Undo toast ───────────────────────────────────────────────────────── */}
+      {lastDeleted && (
+        <div
+          className="fixed left-4 right-4 z-[60] flex items-center justify-between rounded-xl px-4 py-3 shadow-2xl"
+          style={{ bottom: 88, background: '#1a1a2e' }}
+        >
+          <p className="text-[13px] text-white truncate">🗑 &ldquo;{lastDeleted.stop.name}&rdquo; removed</p>
+          <button
+            onClick={handleUndo}
+            className="text-[13px] font-bold ml-4 flex-shrink-0 active:opacity-70"
+            style={{ color: '#93c5fd' }}
+          >Undo</button>
+        </div>
+      )}
+
+      {/* ── Add stop sheet ───────────────────────────────────────────────────── */}
+      {trip && activeDay >= 0 && currentDay && (
+        <AddStopSheet
+          tripId={id}
+          dayIndex={activeDay}
+          dayTitle={currentDay.title || ''}
+          isOpen={addSheetOpen}
+          onClose={() => setAddSheetOpen(false)}
+          onAdd={handleAddStop}
+        />
       )}
     </div>
   )
