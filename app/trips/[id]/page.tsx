@@ -346,6 +346,21 @@ export default function TripViewPage() {
     try { localStorage.removeItem(`trip-deleted-${id}`) } catch { /* ignore */ }
   }, [id])
 
+  const handlePhotoUpdate = useCallback(async (dayIndex: number, stopIndex: number, url: string) => {
+    if (!tripData) return
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) =>
+        di !== dayIndex ? day : {
+          ...day,
+          stops: day.stops.map((s, si) => si !== stopIndex ? s : { ...s, photo_url: url }),
+        }
+      ),
+    }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
   function buildDayRouteUrl(day: Day, startLocation?: string) {
     const stops = day.stops
       .filter(s => s.type !== 'drive' && (s.address || s.name))
@@ -590,6 +605,7 @@ export default function TripViewPage() {
                     isLast={i === currentDay.stops.length - 1}
                     isOwner={isOwner}
                     onDelete={() => handleDeleteStop(activeDay, i)}
+                    onPhotoChange={isOwner ? (url) => handlePhotoUpdate(activeDay, i, url) : undefined}
                   />
                 ))}
               </div>

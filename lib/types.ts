@@ -45,6 +45,8 @@ export interface Stop {
   // Hotel stops
   check_in?: string
   check_out?: string
+  // User-added photo (compressed data URL, stored in trip JSON)
+  photo_url?: string
 }
 
 export interface Eating {
