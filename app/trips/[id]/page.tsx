@@ -8,6 +8,7 @@ import { buildRouteDayUrl } from '@/lib/navigation'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
 import AddStopSheet from '@/components/trip/AddStopSheet'
+import DeletedStopsSheet, { type DeletedEntry } from '@/components/trip/DeletedStopsSheet'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -170,8 +171,10 @@ export default function TripViewPage() {
   const [generateLog,  setGenerateLog]  = useState('')
   const [error,        setError]        = useState('')
   const [saving,       setSaving]       = useState(false)
-  const [addSheetOpen, setAddSheetOpen] = useState(false)
-  const [lastDeleted,  setLastDeleted]  = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const [addSheetOpen,     setAddSheetOpen]     = useState(false)
+  const [showDeletedSheet, setShowDeletedSheet] = useState(false)
+  const [deletedHistory,   setDeletedHistory]   = useState<DeletedEntry[]>([])
+  const [lastDeleted,      setLastDeleted]       = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
 
@@ -240,11 +243,18 @@ export default function TripViewPage() {
     }
     setTripData(updated)
     await saveData(updated)
+    // Persist to deleted history
+    const entry: DeletedEntry = { stop: deletedStop, dayIdx: dayIndex, stopIdx: stopIndex, deletedAt: Date.now() }
+    setDeletedHistory(prev => {
+      const next = [entry, ...prev]
+      try { localStorage.setItem(`trip-deleted-${id}`, JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
     // Set undo window
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     setLastDeleted({ stop: deletedStop, dayIdx: dayIndex, stopIdx: stopIndex })
     undoTimerRef.current = setTimeout(() => setLastDeleted(null), 5000)
-  }, [tripData, saveData])
+  }, [tripData, saveData, id])
 
   const handleUndo = useCallback(async () => {
     if (!lastDeleted || !tripData) return
@@ -263,7 +273,15 @@ export default function TripViewPage() {
     }
     setTripData(updated)
     await saveData(updated)
-  }, [lastDeleted, tripData, saveData])
+    // Remove the most-recent matching entry from history
+    setDeletedHistory(prev => {
+      const idx = prev.findIndex(e => e.stop.name === stop.name && e.dayIdx === dayIdx)
+      if (idx === -1) return prev
+      const next = prev.filter((_, i) => i !== idx)
+      try { localStorage.setItem(`trip-deleted-${id}`, JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }, [lastDeleted, tripData, saveData, id])
 
   const handleAddStop = useCallback(async (stop: Stop) => {
     if (!tripData) return
@@ -298,6 +316,36 @@ export default function TripViewPage() {
     await saveData(updated)
   }, [tripData, saveData])
 
+  const handleRestore = useCallback(async (entry: DeletedEntry) => {
+    if (!tripData) return
+    const { stop, dayIdx, stopIdx } = entry
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) => {
+        if (di !== dayIdx) return day
+        const stops = [...day.stops]
+        stops.splice(Math.min(stopIdx, stops.length), 0, stop)
+        return { ...day, stops }
+      }),
+      total_stops: (tripData.total_stops || 0) + 1,
+    }
+    setTripData(updated)
+    await saveData(updated)
+    // Remove from history
+    setDeletedHistory(prev => {
+      const next = prev.filter(e => e !== entry)
+      try { localStorage.setItem(`trip-deleted-${id}`, JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+    setShowDeletedSheet(false)
+    setActiveDay(dayIdx)
+  }, [tripData, saveData, id])
+
+  const handleClearDeletedHistory = useCallback(() => {
+    setDeletedHistory([])
+    try { localStorage.removeItem(`trip-deleted-${id}`) } catch { /* ignore */ }
+  }, [id])
+
   function buildDayRouteUrl(day: Day, startLocation?: string) {
     const stops = day.stops
       .filter(s => s.type !== 'drive' && (s.address || s.name))
@@ -318,6 +366,13 @@ export default function TripViewPage() {
   useEffect(() => {
     loadTrip().then(t => { if (t?.status === 'draft' && !startedRef.current) { startedRef.current = true; startGeneration() } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`trip-deleted-${id}`)
+      if (raw) setDeletedHistory(JSON.parse(raw) as DeletedEntry[])
+    } catch { /* ignore */ }
   }, [id])
 
   // ── Loading ───────────────────────────────────────────────────────────────────
@@ -505,12 +560,24 @@ export default function TripViewPage() {
               <div className="bg-card-bg border-b border-line px-4 py-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-semibold tracking-[1.5px] uppercase text-soft">Stops &amp; Places of Interest</span>
                 {isOwner && (
-                  <button
-                    onClick={() => setAddSheetOpen(true)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xl leading-none font-bold active:opacity-80"
-                    style={{ background: '#2563a8', lineHeight: 1 }}
-                    title="Add a stop"
-                  >+</button>
+                  <div className="flex items-center gap-2">
+                    {deletedHistory.length > 0 && (
+                      <button
+                        onClick={() => setShowDeletedSheet(true)}
+                        className="flex items-center gap-1 h-7 rounded-full px-2 text-[11px] font-semibold active:opacity-80"
+                        style={{ background: '#fee2e2', color: '#b91c1c' }}
+                        title="View removed stops"
+                      >
+                        🗑 {deletedHistory.length}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setAddSheetOpen(true)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xl leading-none font-bold active:opacity-80"
+                      style={{ background: '#2563a8', lineHeight: 1 }}
+                      title="Add a stop"
+                    >+</button>
+                  </div>
                 )}
               </div>
               <div className="pt-1 pb-1">
@@ -629,6 +696,16 @@ export default function TripViewPage() {
           onAdd={handleAddStop}
         />
       )}
+
+      {/* ── Deleted stops sheet ──────────────────────────────────────────────── */}
+      <DeletedStopsSheet
+        isOpen={showDeletedSheet}
+        onClose={() => setShowDeletedSheet(false)}
+        entries={deletedHistory}
+        days={days}
+        onRestore={handleRestore}
+        onClearAll={handleClearDeletedHistory}
+      />
     </div>
   )
 }
