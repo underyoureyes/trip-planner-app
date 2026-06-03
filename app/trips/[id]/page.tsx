@@ -9,6 +9,7 @@ import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
 import AddStopSheet from '@/components/trip/AddStopSheet'
 import DeletedStopsSheet, { type DeletedEntry } from '@/components/trip/DeletedStopsSheet'
+import TripRouteCard from '@/components/trip/TripRouteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -173,6 +174,10 @@ export default function TripViewPage() {
   const [saving,       setSaving]       = useState(false)
   const [addSheetOpen,     setAddSheetOpen]     = useState(false)
   const [showDeletedSheet, setShowDeletedSheet] = useState(false)
+  const [showRouteCard,    setShowRouteCard]    = useState(false)
+  const [showShareSheet,   setShowShareSheet]   = useState(false)
+  const [shareLink,        setShareLink]        = useState('')
+  const [copyDone,         setCopyDone]         = useState(false)
   const [deletedHistory,   setDeletedHistory]   = useState<DeletedEntry[]>([])
   const [lastDeleted,      setLastDeleted]       = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -380,6 +385,21 @@ export default function TripViewPage() {
     }
   }, [tripData, id, saveData])
 
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/trips/${id}`
+    setShareLink(url)
+    setShowShareSheet(true)
+    // Enable sharing on the trip if not already
+    if (trip && !trip.is_shared) {
+      await fetch(`/api/trips/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_shared: true }),
+      })
+      setTrip(t => t ? { ...t, is_shared: true } : t)
+    }
+  }, [id, trip])
+
   function buildDayRouteUrl(day: Day, startLocation?: string) {
     const stops = day.stops
       .filter(s => s.type !== 'drive' && (s.address || s.name))
@@ -497,6 +517,12 @@ export default function TripViewPage() {
           {profile?.vehicle_name     && <span className="hero-chip">🚗 {profile.vehicle_name}</span>}
           {trip.intake_form?.pets    && <span className="hero-chip">🐾 {trip.intake_form.pets}</span>}
           {saving && <span className="hero-chip opacity-60 text-[11px]">Saving…</span>}
+          {days.length > 0 && (
+            <button onClick={() => setShowRouteCard(true)} className="hero-chip active:bg-white/20 cursor-pointer">📤 Route card</button>
+          )}
+          {isOwner && (
+            <button onClick={handleShare} className="hero-chip active:bg-white/20 cursor-pointer">🔗 Share trip</button>
+          )}
         </div>
       </div>
 
@@ -765,6 +791,59 @@ export default function TripViewPage() {
         onRestore={handleRestore}
         onClearAll={handleClearDeletedHistory}
       />
+
+      {/* ── Route card sheet ─────────────────────────────────────────────────── */}
+      {trip && tripData && (
+        <TripRouteCard
+          isOpen={showRouteCard}
+          onClose={() => setShowRouteCard(false)}
+          trip={trip}
+          tripData={tripData}
+        />
+      )}
+
+      {/* ── Share sheet ──────────────────────────────────────────────────────── */}
+      {showShareSheet && shareLink && (
+        <div className="fixed inset-0 z-[70]">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowShareSheet(false)} />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl px-5 pt-5 pb-10"
+            style={{ maxHeight: '60vh' }}
+          >
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full bg-line" />
+            </div>
+            <h2 className="font-serif text-[20px] text-ink mb-1">Share trip</h2>
+            <p className="text-[12px] text-soft mb-4">Anyone with this link can view the trip (read-only).</p>
+
+            {/* Link pill */}
+            <div className="flex items-center gap-2 bg-mist rounded-card px-4 py-3 mb-3">
+              <p className="flex-1 text-[13px] text-ink truncate">{shareLink}</p>
+              <button
+                onClick={() => { navigator.clipboard.writeText(shareLink).catch(() => {}); setCopyDone(true); setTimeout(() => setCopyDone(false), 2500) }}
+                className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-lg active:opacity-70"
+                style={{ background: copyDone ? '#d8f3dc' : '#dbeafe', color: copyDone ? '#2d6a4f' : '#2563a8' }}
+              >{copyDone ? '✓ Copied' : 'Copy'}</button>
+            </div>
+
+            {/* WhatsApp */}
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Here's our trip itinerary 🗺️ ${shareLink}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2.5 w-full rounded-card py-3.5 mb-3 no-underline font-semibold text-[15px] text-white active:opacity-90"
+              style={{ background: '#25D366' }}
+            >
+              <span className="text-[20px]">💬</span> Share on WhatsApp
+            </a>
+
+            <button
+              onClick={() => setShowShareSheet(false)}
+              className="w-full py-3 text-[13px] text-soft border border-line rounded-card active:bg-mist"
+            >Done</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
