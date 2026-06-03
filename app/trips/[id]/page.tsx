@@ -150,8 +150,8 @@ function InfoPanel({
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const HERO_GRADIENT = 'linear-gradient(160deg, #1a1a2e 0%, #1e3a5f 55%, #2563a8 100%)'
-const DAY_GRADIENT  = 'linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%)'
+const HERO_GRADIENT = 'linear-gradient(160deg, #0d0d1f 0%, #1a1a2e 55%, #1e3a5f 100%)'
+const DAY_GRADIENT  = 'linear-gradient(135deg, #0f1e35 0%, #1e3a5f 100%)'
 const HERO_TEXTURE  = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E")`
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -346,20 +346,39 @@ export default function TripViewPage() {
     try { localStorage.removeItem(`trip-deleted-${id}`) } catch { /* ignore */ }
   }, [id])
 
-  const handlePhotoUpdate = useCallback(async (dayIndex: number, stopIndex: number, url: string) => {
+  const [scanState, setScanState] = useState<null | 'scanning' | { fields: string[] }>(null)
+
+  const handlePhotoScan = useCallback(async (dayIndex: number, stopIndex: number, dataUrl: string) => {
     if (!tripData) return
-    const updated: TripData = {
-      ...tripData,
-      days: tripData.days.map((day, di) =>
-        di !== dayIndex ? day : {
-          ...day,
-          stops: day.stops.map((s, si) => si !== stopIndex ? s : { ...s, photo_url: url }),
-        }
-      ),
+    setScanState('scanning')
+    try {
+      const stop = tripData.days[dayIndex].stops[stopIndex]
+      const res = await fetch(`/api/trips/${id}/scan-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: dataUrl, stopType: stop.type }),
+      })
+      if (!res.ok) { setScanState(null); return }
+      const { updates } = await res.json() as { updates: Record<string, string> }
+      const fields = Object.keys(updates || {}).filter(k => updates[k])
+      if (fields.length === 0) { setScanState(null); return }
+      const updated: TripData = {
+        ...tripData,
+        days: tripData.days.map((day, di) =>
+          di !== dayIndex ? day : {
+            ...day,
+            stops: day.stops.map((s, si) => si !== stopIndex ? s : { ...s, ...updates }),
+          }
+        ),
+      }
+      setTripData(updated)
+      await saveData(updated)
+      setScanState({ fields })
+      setTimeout(() => setScanState(null), 5000)
+    } catch {
+      setScanState(null)
     }
-    setTripData(updated)
-    await saveData(updated)
-  }, [tripData, saveData])
+  }, [tripData, id, saveData])
 
   function buildDayRouteUrl(day: Day, startLocation?: string) {
     const stops = day.stops
@@ -464,7 +483,7 @@ export default function TripViewPage() {
 
         <h1 className="font-serif text-[28px] text-white leading-tight px-5 mb-1.5">{trip.title}</h1>
         {tripData?.summary && (
-          <p className="text-[#93c5fd] text-[13px] font-light tracking-[1.5px] uppercase mb-5 px-5 line-clamp-1">{tripData.summary}</p>
+          <p className="text-[13px] font-light tracking-[1.5px] uppercase mb-5 px-5 line-clamp-1" style={{ color: 'rgba(255,255,255,0.70)' }}>{tripData.summary}</p>
         )}
 
         <div className="flex flex-wrap justify-center gap-2 px-5 pb-5">
@@ -503,7 +522,7 @@ export default function TripViewPage() {
           {/* Day header card */}
           <div className="rounded-card p-5 mb-3.5 relative overflow-hidden" style={{ background: DAY_GRADIENT, boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
             <div className="absolute right-[-20px] top-[-20px] w-[120px] h-[120px] rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-            <p className="text-[11px] font-semibold tracking-[2px] uppercase text-[#93c5fd] mb-1">
+            <p className="text-[11px] font-semibold tracking-[2px] uppercase mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
               Day {currentDay.day_number}{currentDay.date ? ` · ${new Date(currentDay.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}).toUpperCase()}` : ''}
             </p>
             <h2 className="font-serif text-[20px] text-white leading-snug mb-3">{currentDay.title || `Day ${currentDay.day_number}`}</h2>
@@ -605,7 +624,7 @@ export default function TripViewPage() {
                     isLast={i === currentDay.stops.length - 1}
                     isOwner={isOwner}
                     onDelete={() => handleDeleteStop(activeDay, i)}
-                    onPhotoChange={isOwner ? (url) => handlePhotoUpdate(activeDay, i, url) : undefined}
+                    onScanPhoto={isOwner ? (url) => handlePhotoScan(activeDay, i, url) : undefined}
                   />
                 ))}
               </div>
@@ -683,6 +702,30 @@ export default function TripViewPage() {
             {activeDay > 0           && <button onClick={() => setActiveDay(activeDay-1)} className="btn-secondary flex-1">← Day {activeDay}</button>}
             {activeDay < days.length-1 && <button onClick={() => setActiveDay(activeDay+1)} className="btn-primary flex-1">Day {activeDay+2} →</button>}
           </div>
+        </div>
+      )}
+
+      {/* ── Scan photo toast ─────────────────────────────────────────────────── */}
+      {scanState && (
+        <div
+          className="fixed left-4 right-4 z-[60] flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl"
+          style={{ bottom: 88, background: '#1e3a5f' }}
+        >
+          {scanState === 'scanning' ? (
+            <>
+              <div className="w-4 h-4 border-2 rounded-full flex-shrink-0 animate-spin" style={{ borderColor: 'rgba(255,255,255,0.25)', borderTopColor: '#fff' }} />
+              <p className="text-[13px] text-white">Analysing photo…</p>
+            </>
+          ) : (
+            <>
+              <span className="text-lg flex-shrink-0">✅</span>
+              <p className="text-[13px] text-white">
+                Found: {(scanState as { fields: string[] }).fields
+                  .map(f => ({ check_in:'check-in', check_out:'check-out', booking_ref:'booking ref', address:'address', name:'name', phone:'phone', website:'website', notes:'notes' }[f] || f))
+                  .join(', ')}
+              </p>
+            </>
+          )}
         </div>
       )}
 

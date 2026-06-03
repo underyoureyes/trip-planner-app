@@ -9,7 +9,7 @@ interface Props {
   isLast?: boolean
   onDelete?: () => void
   isOwner?: boolean
-  onPhotoChange?: (url: string) => void
+  onScanPhoto?: (dataUrl: string) => void
 }
 
 function dotClass(type: string, isFirst: boolean, isLast: boolean) {
@@ -49,11 +49,10 @@ function compressImage(file: File): Promise<string> {
   })
 }
 
-export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false, onPhotoChange }: Props) {
+export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false, onScanPhoto }: Props) {
   const [dragX,      setDragX]      = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeOpen,  setSwipeOpen]  = useState(false)
-  const [lightbox,   setLightbox]   = useState(false)
 
   const fileRef    = useRef<HTMLInputElement>(null)
   const pointerRef = useRef<{ active: boolean; startX: number; startY: number; locked: boolean }>({
@@ -68,7 +67,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address || stop.name)}`
     : null
 
-  // When swipeOpen the card is fixed at -100px; during drag dragX drives the offset
   const translateX = swipeOpen ? -100 : dragX
 
   function closeSwipe() { setSwipeOpen(false); setDragX(0) }
@@ -76,7 +74,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
   // ── Pointer / swipe handlers ─────────────────────────────────────────────────
 
   function onPointerDown(e: React.PointerEvent) {
-    // New drag always cancels the open panel
     if (swipeOpen) closeSwipe()
     pointerRef.current = { active: true, startX: e.clientX, startY: e.clientY, locked: false }
   }
@@ -102,7 +99,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
     pointerRef.current.active = false
     setIsDragging(false)
     if (dragX < -50) {
-      // Snap open → show the Delete button
       setSwipeOpen(true)
       setDragX(0)
     } else {
@@ -110,13 +106,13 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
     }
   }
 
-  // ── Photo handlers ───────────────────────────────────────────────────────────
+  // ── Photo scan ───────────────────────────────────────────────────────────────
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     const url = await compressImage(file)
-    onPhotoChange?.(url)
+    onScanPhoto?.(url)
     e.target.value = ''
   }
 
@@ -125,11 +121,11 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
   return (
     <div className="relative overflow-hidden">
 
-      {/* Delete panel (revealed behind the card when swiped) */}
-      {canSwipe && (
+      {/* Delete panel — only rendered while dragging or snapped open */}
+      {canSwipe && (swipeOpen || dragX < 0) && (
         <div
-          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500"
-          style={{ width: 100 }}
+          className="absolute right-0 top-0 bottom-0 bg-red-500 flex items-center justify-center"
+          style={{ width: swipeOpen ? 100 : Math.min(100, -dragX) }}
         >
           {swipeOpen ? (
             <button
@@ -141,12 +137,12 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
               <span className="text-[13px]">Delete</span>
             </button>
           ) : (
-            dragX < -50 && <span className="text-white text-[13px] font-bold">Delete →</span>
+            -dragX > 50 && <span className="text-white text-[13px] font-bold">Delete →</span>
           )}
         </div>
       )}
 
-      {/* Transparent overlay — tapping the card when panel is open just closes it */}
+      {/* Transparent overlay — tapping the card when panel is open closes it */}
       {swipeOpen && (
         <div
           className="absolute top-0 bottom-0 left-0"
@@ -155,8 +151,9 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
         />
       )}
 
-      {/* Sliding card */}
+      {/* Sliding card — position:relative ensures it stacks above the delete panel */}
       <div
+        className="relative bg-white"
         style={{
           transform:  translateX !== 0 ? `translateX(${translateX}px)` : undefined,
           transition: isDragging ? 'none' : 'transform 0.25s ease',
@@ -167,24 +164,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
         onPointerUp={canSwipe ? onPointerUp : undefined}
         onPointerCancel={canSwipe ? onPointerUp : undefined}
       >
-
-        {/* Photo thumbnail (full-width, tappable to lightbox) */}
-        {stop.photo_url && (
-          <button
-            className="w-full block"
-            style={{ lineHeight: 0 }}
-            onPointerDown={e => e.stopPropagation()}
-            onClick={() => setLightbox(true)}
-          >
-            <img
-              src={stop.photo_url}
-              alt={stop.name}
-              className="w-full object-cover"
-              style={{ maxHeight: 200 }}
-            />
-          </button>
-        )}
-
         <div className="flex items-stretch">
           {/* Timeline dot + connector */}
           <div className="w-[60px] flex-shrink-0 flex flex-col items-center pt-[14px]">
@@ -267,13 +246,13 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
                 {stop.phone && (
                   <a href={`tel:${stop.phone}`} className="stop-nav-btn" onPointerDown={e => e.stopPropagation()}>📞 Call</a>
                 )}
-                {isOwner && (
+                {isOwner && onScanPhoto && (
                   <button
                     className="stop-nav-btn"
                     onPointerDown={e => e.stopPropagation()}
                     onClick={() => fileRef.current?.click()}
                   >
-                    📷 {stop.photo_url ? 'Change photo' : 'Add photo'}
+                    📷 Scan booking
                   </button>
                 )}
               </div>
@@ -290,7 +269,7 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
       </div>
 
       {/* Hidden file input — no capture= so user can choose camera or library */}
-      {isOwner && !isDrive && (
+      {isOwner && onScanPhoto && !isDrive && (
         <input
           ref={fileRef}
           type="file"
@@ -298,27 +277,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
           className="hidden"
           onChange={handleFile}
         />
-      )}
-
-      {/* Lightbox */}
-      {lightbox && stop.photo_url && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
-          onClick={() => setLightbox(false)}
-        >
-          <img
-            src={stop.photo_url}
-            alt={stop.name}
-            className="max-w-full max-h-screen object-contain"
-            style={{ padding: 16 }}
-          />
-          <button
-            className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center text-white text-xl font-bold active:opacity-70"
-            style={{ background: 'rgba(255,255,255,0.2)' }}
-            onClick={e => { e.stopPropagation(); setLightbox(false) }}
-          >×</button>
-        </div>
       )}
     </div>
   )
