@@ -466,7 +466,7 @@ export default function TripViewPage() {
     <div className="min-h-screen bg-mist">
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden text-center" style={{ background: HERO_GRADIENT, backgroundImage: HERO_TEXTURE, paddingTop: 52 }}>
+      <div className="relative overflow-hidden text-center" style={{ background: `${HERO_TEXTURE}, ${HERO_GRADIENT}`, paddingTop: 52 }}>
         <div className="flex items-center justify-between px-5 mb-4">
           <Link href="/trips" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:bg-white/20">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
