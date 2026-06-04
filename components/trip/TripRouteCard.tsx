@@ -31,18 +31,19 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   const leafletRef  = useRef<ReturnType<typeof import('leaflet')['map']> | null>(null)
   const tripId = trip.id
 
-  // Load geocoded coords (cache in localStorage)
+  // Load geocoded coords (cache keyed on stop names — auto-busts when trip changes)
   useEffect(() => {
     if (!isOpen) { setVisible(false); return }
     setTimeout(() => setVisible(true), 10)
 
-    const cacheKey = `trip-geocode-v5-${tripId}`
+    const stopList = buildRouteStops(trip, tripData)
+    const stopKey  = stopList.map(s => s.name).join('|')
+    const cacheKey = `trip-geocode-v6-${tripId}-${stopKey}`
+
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
       try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
     }
-
-    const stopList = buildRouteStops(trip, tripData)
     if (stopList.length === 0) { setStatus('error'); return }
 
     setStatus('geocoding')
@@ -160,7 +161,10 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   }, [status, coords])
 
   function handleRegenerate() {
-    localStorage.removeItem(`trip-geocode-v5-${tripId}`)
+    // Clear all cached geocode entries for this trip
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(`trip-geocode-`) && k.includes(tripId))
+      .forEach(k => localStorage.removeItem(k))
     setCoords([])
     setStatus('idle')
   }
