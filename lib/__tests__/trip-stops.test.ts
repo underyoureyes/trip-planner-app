@@ -123,6 +123,22 @@ describe('route map and stays tab count invariant', () => {
     expect(routeStops.length - 1).toBe(accomEntries.length)
   })
 
+  it('first hotel in same city as origin is NOT deduplicated against origin', () => {
+    const trip = makeTrip('Edinburgh, Scotland')
+    const data = makeData([
+      makeDay(1, hotelStop('Old Town Hotel', 'Edinburgh')), // same city as origin
+      makeDay(2, hotelStop('Inverness Hotel', 'Inverness')),
+    ])
+
+    const routeStops = buildRouteStops(trip, data)
+    const accomEntries = getAccommodationEntries(data)
+
+    // Both Edinburgh and Inverness must appear in stays and route
+    expect(accomEntries).toHaveLength(2)
+    expect(routeStops).toHaveLength(3) // origin + 2 hotels
+    expect(routeStops.length - 1).toBe(accomEntries.length)
+  })
+
   it('empty trip produces zero entries and only origin in route', () => {
     const trip = makeTrip()
     const data = makeData([])

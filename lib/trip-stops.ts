@@ -57,15 +57,19 @@ export function buildRouteStops(trip: Trip, tripData: TripData): RouteStop[] {
     stops.push({ name: origin, isFirst: true, isLast: false, highlight: false })
   }
 
+  // Track the last hotel key separately — never compare against the origin stop
+  let lastHotelKey = ''
+
   for (const day of days) {
     const hotel = day.stops.find(s => s.type === 'hotel')
     // Only use hotel stops — keeps count identical to getAccommodationEntries
     const location = hotel?.address || hotel?.name
     if (!location) continue
 
-    // Consecutive deduplication — same logic as getAccommodationEntries
-    const prev = stops[stops.length - 1]
-    if (prev && prev.name.toLowerCase() === location.toLowerCase()) continue
+    // Consecutive deduplication — only hotel-to-hotel (matches getAccommodationEntries)
+    const key = location.toLowerCase()
+    if (key === lastHotelKey) continue
+    lastHotelKey = key
 
     stops.push({
       name: location,
