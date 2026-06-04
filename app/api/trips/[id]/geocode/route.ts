@@ -36,8 +36,9 @@ export async function POST(
 
   for (let i = 0; i < locations.length; i++) {
     const rawQ = locations[i]
-    // Append country hint to bare place names to avoid wrong-continent geocoding
-    const q = country_hint && !rawQ.includes(',') ? `${rawQ}, ${country_hint}` : rawQ
+    // Append country hint unless already present — covers bare names AND comma-separated addresses
+    const q = country_hint && !rawQ.toLowerCase().includes(country_hint.toLowerCase())
+      ? `${rawQ}, ${country_hint}` : rawQ
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)

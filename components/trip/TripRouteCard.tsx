@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Trip, TripData } from '@/lib/types'
 import type { GeocodedPoint } from '@/app/api/trips/[id]/geocode/route'
-import { buildRouteStops, getCountryHint } from '@/lib/trip-stops'
+import { buildRouteStops, getCountryHint, type RouteStop } from '@/lib/trip-stops'
 
 interface Props {
   isOpen: boolean
@@ -24,16 +24,17 @@ function markerHtml(label: string, color: string, border: string) {
 }
 
 export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props) {
-  const [visible,  setVisible]  = useState(false)
-  const [status,   setStatus]   = useState<'idle' | 'geocoding' | 'ready' | 'error'>('idle')
-  const [coords,   setCoords]   = useState<GeocodedPoint[]>([])
+  const [visible,     setVisible]     = useState(false)
+  const [status,      setStatus]      = useState<'idle' | 'geocoding' | 'ready' | 'error'>('idle')
+  const [coords,      setCoords]      = useState<GeocodedPoint[]>([])
+  const [routeStops,  setRouteStops]  = useState<RouteStop[]>([])
   const mapDivRef   = useRef<HTMLDivElement>(null)
   const leafletRef  = useRef<ReturnType<typeof import('leaflet')['map']> | null>(null)
   const tripId = trip.id
 
-  // Geocode stops every time the card opens — no caching
+  // Geocode stops every time the card opens — store stops alongside coords to guarantee alignment
   useEffect(() => {
-    if (!isOpen) { setVisible(false); setCoords([]); setStatus('idle'); return }
+    if (!isOpen) { setVisible(false); setCoords([]); setRouteStops([]); setStatus('idle'); return }
     setTimeout(() => setVisible(true), 10)
 
     const stopList = buildRouteStops(trip, tripData)
@@ -50,6 +51,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     })
       .then(r => r.json())
       .then(({ results }: { results: GeocodedPoint[] }) => {
+        setRouteStops(stopList)   // save stops from the same call that built locations
         setCoords(results)
         setStatus('ready')
       })
@@ -59,18 +61,15 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   // Init Leaflet map once coords are ready and sheet is visible
   useEffect(() => {
     if (status !== 'ready' || !mapDivRef.current || coords.length === 0) return
-
-    // Keep the full coords array (including nulls) so indices stay aligned with stops[]
     if (!coords.some(c => c.lat !== null)) return
 
-    // Destroy previous map instance if it exists
     if (leafletRef.current) {
       leafletRef.current.remove()
       leafletRef.current = null
     }
 
-    // stops[i] must align 1:1 with coords[i] — both built from the same buildRouteStops call
-    const stops = buildRouteStops(trip, tripData)
+    // routeStops[i] aligns 1:1 with coords[i] — both come from the same geocode fetch
+    const stops = routeStops
 
     import('leaflet').then(L => {
       if (!mapDivRef.current) return
@@ -150,7 +149,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
       leafletRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, coords])
+  }, [status, coords, routeStops])
 
   if (!isOpen) return null
 
@@ -216,12 +215,12 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
                 />
                 <p className="text-soft text-[14px]">
                   {status === 'geocoding'
-                    ? `Looking up ${buildRouteStops(trip, tripData).length} stops…`
+                    ? `Looking up ${routeStops.length || buildRouteStops(trip, tripData).length} stops…`
                     : 'Preparing map…'}
                 </p>
                 {status === 'geocoding' && (
                   <p className="text-[12px] text-soft px-8 text-center">
-                    Each stop is geocoded individually — takes ~{buildRouteStops(trip, tripData).length}s
+                    Each stop is geocoded individually — takes ~{routeStops.length || buildRouteStops(trip, tripData).length}s
                   </p>
                 )}
               </div>
