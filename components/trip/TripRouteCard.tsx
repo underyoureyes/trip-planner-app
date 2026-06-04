@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import type { Trip, TripData, StopType, Day } from '@/lib/types'
+import type { Trip, TripData, Day } from '@/lib/types'
 import type { GeocodedPoint } from '@/app/api/trips/[id]/geocode/route'
 
 interface Props {
@@ -18,49 +18,27 @@ interface StopInfo {
   date?: string
 }
 
-// Stop types that represent a real destination worth showing on the map
-const DESTINATION_TYPES: StopType[] = [
-  'sightseeing', 'nature', 'castle', 'viewpoint', 'activity',
-  'museum', 'distillery', 'beach', 'town',
-]
-
-// Pick the most meaningful location name for a day to show on the route map
-function pickDayLocation(day: Day): string | null {
-  // overnight_location is a named place (e.g. "Isle of Skye", "Inverness") — use if present
-  if (day.overnight_location) return day.overnight_location
-
-  // Otherwise find the first significant destination stop visited that day
-  for (const type of DESTINATION_TYPES) {
-    const stop = day.stops.find(s => s.type === type && s.name)
-    if (stop) return stop.name
-  }
-
-  // Last resort: accommodation (Airbnb / hotel)
-  const acc = day.stops.find(
-    s => s.type === 'hotel' || Boolean(s.check_in) || Boolean(s.check_out) || Boolean(s.booking_ref)
-  )
-  return acc?.name ?? null
-}
-
 function buildStopList(trip: Trip, tripData: TripData): StopInfo[] {
   const days = tripData.days || []
   const stops: StopInfo[] = []
-  const seen = new Set<string>()
 
   const origin = trip.intake_form?.origin?.split(',')[0]?.trim()
   if (origin) {
     stops.push({ name: origin, isFirst: true, isLast: false, highlight: false })
-    seen.add(origin.toLowerCase())
   }
 
   for (const day of days) {
-    const location = pickDayLocation(day)
+    // Hotel stop has address + name set by Claude (Airbnbs are also type hotel)
+    const hotel = day.stops.find(s => s.type === 'hotel')
+
+    // Use the most specific available location:
+    // hotel address (e.g. "Portree, Isle of Skye") → hotel name → overnight town
+    const location = hotel?.address || hotel?.name || day.overnight_location
     if (!location) continue
 
-    // Deduplicate consecutive same-location days (e.g. 2-night stay)
-    const key = location.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
+    // Only skip if immediately previous stop is the same (multi-night stay at same place)
+    const prev = stops[stops.length - 1]
+    if (prev && prev.name.toLowerCase() === location.toLowerCase()) continue
 
     stops.push({
       name: location,
@@ -71,7 +49,7 @@ function buildStopList(trip: Trip, tripData: TripData): StopInfo[] {
     })
   }
 
-  // Mark actual last stop
+  // Mark last stop
   if (stops.length > 1) stops[stops.length - 1].isLast = true
 
   return stops
@@ -109,7 +87,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     if (!isOpen) { setVisible(false); return }
     setTimeout(() => setVisible(true), 10)
 
-    const cacheKey = `trip-geocode-v4-${tripId}`
+    const cacheKey = `trip-geocode-v5-${tripId}`
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
       try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
