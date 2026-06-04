@@ -109,7 +109,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     if (!isOpen) { setVisible(false); return }
     setTimeout(() => setVisible(true), 10)
 
-    const cacheKey = `trip-geocode-v3-${tripId}`
+    const cacheKey = `trip-geocode-v4-${tripId}`
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
       try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
@@ -140,10 +140,8 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   useEffect(() => {
     if (status !== 'ready' || !mapDivRef.current || coords.length === 0) return
 
-    const validPoints = coords.filter(c => c.lat !== null && c.lon !== null) as
-      Array<GeocodedPoint & { lat: number; lon: number }>
-
-    if (validPoints.length === 0) return
+    // Keep the full coords array (including nulls) so indices stay aligned with stops[]
+    if (!coords.some(c => c.lat !== null)) return
 
     // Destroy previous map instance if it exists
     if (leafletRef.current) {
@@ -151,6 +149,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
       leafletRef.current = null
     }
 
+    // stops[i] must align 1:1 with coords[i] — both built from the same buildStopList call
     const stops = buildStopList(trip, tripData)
 
     import('leaflet').then(L => {
@@ -177,8 +176,12 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
       }).addTo(map)
 
       const latlngs: [number, number][] = []
+      let markerNum = 1 // visible numbering for mid-trip stops
 
-      validPoints.forEach((pt, i) => {
+      // Iterate over full coords array — use index i to align with stops[i]
+      coords.forEach((pt, i) => {
+        if (pt.lat === null || pt.lon === null) return // skip failed geocodes, keep index intact
+
         const stop = stops[i] || { isFirst: false, isLast: false, highlight: false, name: pt.query }
 
         let color = '#2563a8'
@@ -187,7 +190,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
         if (stop.isLast)    { color = '#b45309'; border = '#fde68a' }
         if (stop.highlight && !stop.isFirst && !stop.isLast) { color = '#7c3aed'; border = '#c4b5fd' }
 
-        const label = stop.isFirst ? 'S' : stop.isLast ? 'F' : String(i)
+        const label = stop.isFirst ? 'S' : stop.isLast ? 'F' : String(markerNum++)
 
         const icon = L.divIcon({
           html: markerHtml(label, color, border),
