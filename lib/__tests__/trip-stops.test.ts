@@ -203,6 +203,63 @@ describe('buildRouteStops', () => {
   })
 })
 
+// ── No-origin fallback ─────────────────────────────────────────────────────────
+
+describe('buildRouteStops — no origin fallback', () => {
+  function makeTripNoOrigin(): Trip {
+    return {
+      id: 'trip-2',
+      owner_id: 'user-1',
+      title: 'Scotland Loop',
+      status: 'ready',
+      is_shared: false,
+      created_at: '2026-01-01T00:00:00Z',
+      intake_form: undefined,
+    }
+  }
+
+  it('first hotel is marked isFirst when origin is missing', () => {
+    const trip = makeTripNoOrigin()
+    const data = makeData([
+      makeDay(1, hotelStop('Hotel A', 'Town A')),
+      makeDay(2, hotelStop('Hotel B', 'Town B')),
+      makeDay(3, hotelStop('Hotel C', 'Town C')),
+    ])
+    const stops = buildRouteStops(trip, data)
+    expect(stops).toHaveLength(3)
+    expect(stops[0].isFirst).toBe(true)
+    expect(stops[2].isLast).toBe(true)
+  })
+
+  it('count equals accommodation entries when origin is missing (no extra stop)', () => {
+    const trip = makeTripNoOrigin()
+    const data = makeData([
+      makeDay(1, hotelStop('Hotel A', 'Town A')),
+      makeDay(2, hotelStop('Hotel B', 'Town B')),
+    ])
+    const routeStops = buildRouteStops(trip, data)
+    const accomEntries = getAccommodationEntries(data)
+    expect(routeStops).toHaveLength(accomEntries.length)
+    expect(routeStops[0].isFirst).toBe(true)
+  })
+
+  it('returns empty array when origin missing and no hotels', () => {
+    const trip = makeTripNoOrigin()
+    const data = makeData([])
+    expect(buildRouteStops(trip, data)).toHaveLength(0)
+  })
+
+  it('first hotel is marked isFirst when origin is empty string', () => {
+    const trip = makeTrip('')
+    const data = makeData([
+      makeDay(1, hotelStop('Inverness Hotel', 'Inverness')),
+    ])
+    const stops = buildRouteStops(trip, data)
+    expect(stops).toHaveLength(1)
+    expect(stops[0].isFirst).toBe(true)
+  })
+})
+
 // ── getCountryHint ─────────────────────────────────────────────────────────────
 
 describe('getCountryHint', () => {

@@ -80,6 +80,11 @@ export function buildRouteStops(trip: Trip, tripData: TripData): RouteStop[] {
     })
   }
 
+  // When origin is missing, promote the first hotel to the visual start
+  if (!origin && stops.length > 0) {
+    stops[0] = { ...stops[0], isFirst: true }
+  }
+
   if (stops.length > 1) stops[stops.length - 1].isLast = true
 
   return stops
