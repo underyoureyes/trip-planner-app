@@ -54,7 +54,7 @@ const TRIP_DATA_FIXTURE: TripData = {
         { name: 'Inverness Hotel', type: 'hotel', address: 'Inverness IV1', check_in: '15:00', check_out: '10:00' },
       ],
       eating: [],
-      notes: null,
+      notes: undefined,
     },
     {
       day_number: 3,
