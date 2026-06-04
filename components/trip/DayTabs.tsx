@@ -4,7 +4,7 @@ import type { Day } from '@/lib/types'
 
 interface Props {
   days: Day[]
-  activeIndex: number   // -1 = overview, 0..n-1 = day
+  activeIndex: number   // -2 = accommodation, -1 = overview, 0..n-1 = day
   onSelect: (index: number) => void
 }
 
@@ -50,6 +50,22 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
         <span>Overview</span>
         <span className="text-[10px] leading-none mt-0.5 opacity-80">📋</span>
       </button>
+
+      {/* Accommodation tab */}
+      {days.some(d => d.stops.some(s => s.type === 'hotel')) && (
+        <button
+          ref={activeIndex === -2 ? activeRef : undefined}
+          onClick={() => onSelect(-2)}
+          className="flex-shrink-0 rounded-[20px] text-[13px] font-semibold whitespace-nowrap transition-all flex flex-col items-center"
+          style={activeIndex === -2
+            ? { background: '#2d6a4f', color: '#fff', padding: '6px 15px 5px', boxShadow: '0 2px 8px rgba(45,106,79,0.30)' }
+            : { background: '#e8edf5', color: '#475569', padding: '6px 15px 5px' }
+          }
+        >
+          <span>Stays</span>
+          <span className="text-[10px] leading-none mt-0.5 opacity-80">🛏️</span>
+        </button>
+      )}
 
       {/* Day tabs */}
       {days.map((day, i) => {

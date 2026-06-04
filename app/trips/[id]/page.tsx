@@ -56,6 +56,130 @@ function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: 
   )
 }
 
+function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: number) => void }) {
+  const entries: { day: Day; dayIdx: number; stop: Stop }[] = []
+  days.forEach((day, dayIdx) => {
+    day.stops.forEach(stop => {
+      if (stop.type === 'hotel') entries.push({ day, dayIdx, stop })
+    })
+  })
+
+  if (entries.length === 0) {
+    return (
+      <div className="px-4 pt-12 text-center text-soft">
+        <p className="text-3xl mb-3">🛏️</p>
+        <p>No accommodation stops found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
+      <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">
+        {entries.length} {entries.length === 1 ? 'stay' : 'stays'}
+      </p>
+      <div className="space-y-3">
+        {entries.map(({ day, dayIdx, stop }, i) => {
+          const dateStr = day.date
+            ? new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+            : null
+
+          return (
+            <button
+              key={i}
+              onClick={() => onSelectDay(dayIdx)}
+              className="w-full text-left bg-white rounded-card overflow-hidden"
+              style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}
+            >
+              {/* Header bar */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
+                <div
+                  className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg"
+                  style={{ width: 44, height: 44, minWidth: 44, background: '#2d6a4f' }}
+                >
+                  <span className="text-white text-[18px] leading-none">🛏️</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-ink leading-snug truncate">{stop.name}</p>
+                  {(dateStr || day.overnight_location) && (
+                    <p className="text-[12px] text-soft truncate">
+                      {[dateStr, day.overnight_location].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+                <span className="text-[11px] font-semibold text-blue-600 flex-shrink-0">Day {day.day_number} ›</span>
+              </div>
+
+              {/* Details */}
+              <div className="px-4 py-3 space-y-1.5">
+                {stop.check_in && stop.check_out && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft w-20 flex-shrink-0">Check-in</span>
+                    <span className="font-semibold text-ink">{stop.check_in}</span>
+                    <span className="text-soft mx-1">→</span>
+                    <span className="text-soft w-20 flex-shrink-0">Check-out</span>
+                    <span className="font-semibold text-ink">{stop.check_out}</span>
+                  </div>
+                )}
+                {stop.address && (
+                  <div className="flex items-start gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Address</span>
+                    <span className="text-ink leading-snug">{stop.address}</span>
+                  </div>
+                )}
+                {stop.booking_ref && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Ref</span>
+                    <span className="font-mono font-semibold text-ink tracking-wide">{stop.booking_ref}</span>
+                  </div>
+                )}
+                {stop.phone && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Phone</span>
+                    <a href={`tel:${stop.phone}`} className="text-blue-600 font-semibold" onClick={e => e.stopPropagation()}>
+                      {stop.phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Action links */}
+              {(stop.website || stop.address) && (
+                <div className="px-4 pb-3 flex gap-2">
+                  {stop.website && (
+                    <a
+                      href={stop.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="flex-1 text-center py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: '#dbeafe', color: '#2563a8' }}
+                    >
+                      {stop.website_label || 'Website'}
+                    </a>
+                  )}
+                  {stop.address && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}&travelmode=driving`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="flex-1 text-center py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: '#dcfce7', color: '#2d6a4f' }}
+                    >
+                      Directions
+                    </a>
+                  )}
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function InfoPanel({
   eating, sections, isOwner, onDeleteEating,
 }: {
@@ -544,6 +668,11 @@ export default function TripViewPage() {
       )}
       {activeDay === -1 && days.length === 0 && (
         <div className="px-4 pt-12 text-center text-soft"><p>No days planned yet</p></div>
+      )}
+
+      {/* ── Accommodation ────────────────────────────────────────────────────── */}
+      {activeDay === -2 && (
+        <AccommodationSection days={days} onSelectDay={setActiveDay} />
       )}
 
       {/* ── Day content ──────────────────────────────────────────────────────── */}
