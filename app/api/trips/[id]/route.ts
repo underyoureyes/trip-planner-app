@@ -7,7 +7,6 @@ export async function GET(
 ) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: trip, error } = await supabase
     .from('trips')
@@ -19,8 +18,9 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (trip.owner_id !== user.id && !trip.is_shared) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Allow access if: owner, or trip is shared (even for unauthenticated users)
+  if (!trip.is_shared && (!user || trip.owner_id !== user.id)) {
+    return NextResponse.json({ error: user ? 'Forbidden' : 'Unauthorized' }, { status: user ? 403 : 401 })
   }
 
   const { data: tripDataRow } = await supabase

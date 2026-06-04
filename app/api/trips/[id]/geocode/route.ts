@@ -39,10 +39,14 @@ export async function POST(
     // Append country hint to bare place names to avoid wrong-continent geocoding
     const q = country_hint && !rawQ.includes(',') ? `${rawQ}, ${country_hint}` : rawQ
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`
       const res = await fetch(url, {
         headers: { 'User-Agent': 'TripPlannerApp/1.0 (road trip planner)' },
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
       const data = await res.json() as Array<{ lat: string; lon: string }>
       if (data[0]) {
         results.push({ query: rawQ, lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })

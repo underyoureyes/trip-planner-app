@@ -185,7 +185,11 @@ export default function TripViewPage() {
 
   async function loadTrip() {
     const res = await fetch(`/api/trips/${id}`)
-    if (!res.ok) { if (res.status === 404) router.push('/trips'); return null }
+    if (!res.ok) {
+      setLoading(false)
+      if (res.status === 404 || res.status === 403) router.push('/trips')
+      return null
+    }
     const data = await res.json()
     setTrip(data.trip)
     setTripData(data.tripData)
@@ -197,6 +201,7 @@ export default function TripViewPage() {
     if (todayIdx >= 0) setActiveDay(todayIdx)
     // else stays at -1 (overview)
 
+    // /api/me only works when logged in — guests viewing a shared trip will get 401, that's fine
     const meRes = await fetch('/api/me')
     if (meRes.ok) {
       const me = await meRes.json()
