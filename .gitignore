@@ -28,3 +28,4 @@ node_modules/
 # Word doc is a binary — regenerate with: node builders/build_word.js
 output/Scotland_Itinerary_2026.docx
 .vercel
+tsconfig.tsbuildinfo
