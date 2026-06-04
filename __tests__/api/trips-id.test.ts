@@ -32,7 +32,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('GET /api/trips/[id]', () => {
   it('returns 401 when not authenticated', async () => {
-    vi.mocked(createServerSupabaseClient).mockResolvedValue(makeSupabaseMock() as any)
+    vi.mocked(createServerSupabaseClient).mockResolvedValue(makeSupabaseMock({ tripRow: TRIP }) as any)
     const res = await GET(new NextRequest('http://localhost'), PARAMS)
     expect(res.status).toBe(401)
   })

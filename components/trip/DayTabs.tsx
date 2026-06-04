@@ -58,7 +58,7 @@ export default function DayTabs({ days, activeIndex, onSelect }: Props) {
           onClick={() => onSelect(-2)}
           className="flex-shrink-0 rounded-[20px] text-[13px] font-semibold whitespace-nowrap transition-all flex flex-col items-center"
           style={activeIndex === -2
-            ? { background: '#2d6a4f', color: '#fff', padding: '6px 15px 5px', boxShadow: '0 2px 8px rgba(45,106,79,0.30)' }
+            ? { background: '#2563a8', color: '#fff', padding: '6px 15px 5px', boxShadow: '0 2px 8px rgba(37,99,168,0.30)' }
             : { background: '#e8edf5', color: '#475569', padding: '6px 15px 5px' }
           }
         >

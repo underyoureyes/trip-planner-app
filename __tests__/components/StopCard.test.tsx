@@ -77,26 +77,24 @@ describe('StopCard', () => {
 
   it('shows nav link for non-drive stops with address', () => {
     render(<StopCard stop={sightseeing} index={0} />)
-    expect(screen.getByText('🗺️ Nav')).toBeInTheDocument()
+    expect(screen.getByText('📍 Navigate')).toBeInTheDocument()
   })
 
   it('does not show nav link for drive stops', () => {
     render(<StopCard stop={driveStop} index={0} />)
-    expect(screen.queryByText('🗺️ Nav')).not.toBeInTheDocument()
+    expect(screen.queryByText('📍 Navigate')).not.toBeInTheDocument()
   })
 
-  it('shows website link when expanded', () => {
+  it('shows website link when stop has website', () => {
     const stop: Stop = { ...sightseeing, website: 'https://www.edinburghcastle.scot' }
     render(<StopCard stop={stop} index={0} />)
-    fireEvent.click(screen.getByText('Edinburgh Castle'))
-    expect(screen.getByText(/edinburghcastle\.scot/)).toBeInTheDocument()
+    expect(screen.getByText('🌐 Website')).toBeInTheDocument()
   })
 
-  it('shows phone link when expanded', () => {
+  it('shows phone link when stop has phone', () => {
     const stop: Stop = { ...sightseeing, phone: '0131 225 9846' }
     render(<StopCard stop={stop} index={0} />)
-    fireEvent.click(screen.getByText('Edinburgh Castle'))
-    expect(screen.getByText(/0131 225 9846/)).toBeInTheDocument()
+    expect(screen.getByText('📞 Call')).toBeInTheDocument()
   })
 
   it('shows booking ref when expanded', () => {
@@ -127,25 +125,25 @@ describe('StopCard', () => {
       expect(screen.queryByText('×')).not.toBeInTheDocument()
     })
 
-    it('shows confirm state after first click', () => {
+    it('opens delete panel after first click', () => {
       render(<StopCard stop={sightseeing} index={0} isOwner />)
       fireEvent.click(screen.getByText('×'))
-      expect(screen.getByText('✓')).toBeInTheDocument()
+      expect(screen.getByText('Delete')).toBeInTheDocument()
     })
 
     it('calls onDelete after confirm click', () => {
       const onDelete = vi.fn()
       render(<StopCard stop={sightseeing} index={0} isOwner onDelete={onDelete} />)
       fireEvent.click(screen.getByText('×'))
-      fireEvent.click(screen.getByText('✓'))
+      fireEvent.click(screen.getByText('Delete'))
       expect(onDelete).toHaveBeenCalledOnce()
     })
 
-    it('resets confirm state after timeout', () => {
+    it('delete panel stays open (no auto-close timeout)', () => {
       render(<StopCard stop={sightseeing} index={0} isOwner />)
       fireEvent.click(screen.getByText('×'))
       act(() => { vi.advanceTimersByTime(3000) })
-      expect(screen.getByText('×')).toBeInTheDocument()
+      expect(screen.getByText('Delete')).toBeInTheDocument()
     })
   })
 })

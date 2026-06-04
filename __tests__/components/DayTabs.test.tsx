@@ -40,7 +40,8 @@ describe('DayTabs', () => {
 
   it('renders empty list without crashing', () => {
     render(<DayTabs days={[]} activeIndex={0} onSelect={vi.fn()} />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByText('Overview')).toBeInTheDocument()
+    expect(screen.queryByText(/Day \d/)).not.toBeInTheDocument()
   })
 
   it('shows Claude-provided activity_badges on tab', () => {

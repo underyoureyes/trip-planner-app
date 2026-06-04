@@ -1,65 +1,14 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import type { Trip, TripData, Day } from '@/lib/types'
+import type { Trip, TripData } from '@/lib/types'
 import type { GeocodedPoint } from '@/app/api/trips/[id]/geocode/route'
+import { buildRouteStops, getCountryHint } from '@/lib/trip-stops'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   trip: Trip
   tripData: TripData
-}
-
-interface StopInfo {
-  name: string
-  isFirst: boolean
-  isLast: boolean
-  highlight: boolean
-  date?: string
-}
-
-function buildStopList(trip: Trip, tripData: TripData): StopInfo[] {
-  const days = tripData.days || []
-  const stops: StopInfo[] = []
-
-  const origin = trip.intake_form?.origin?.split(',')[0]?.trim()
-  if (origin) {
-    stops.push({ name: origin, isFirst: true, isLast: false, highlight: false })
-  }
-
-  for (const day of days) {
-    // Hotel stop has address + name set by Claude (Airbnbs are also type hotel)
-    const hotel = day.stops.find(s => s.type === 'hotel')
-
-    // Use the most specific available location:
-    // hotel address (e.g. "Portree, Isle of Skye") → hotel name → overnight town
-    const location = hotel?.address || hotel?.name || day.overnight_location
-    if (!location) continue
-
-    // Only skip if immediately previous stop is the same (multi-night stay at same place)
-    const prev = stops[stops.length - 1]
-    if (prev && prev.name.toLowerCase() === location.toLowerCase()) continue
-
-    stops.push({
-      name: location,
-      isFirst: false,
-      isLast: false,
-      highlight: day.highlight === true,
-      date: day.date,
-    })
-  }
-
-  // Mark last stop
-  if (stops.length > 1) stops[stops.length - 1].isLast = true
-
-  return stops
-}
-
-// Extract country context from intake origin e.g. "Glasgow, Scotland" → "Scotland"
-function getCountryHint(trip: Trip): string {
-  const origin = trip.intake_form?.origin || ''
-  const parts = origin.split(',').map(p => p.trim()).filter(Boolean)
-  return parts.length > 1 ? parts.slice(1).join(', ') : ''
 }
 
 // Marker HTML for custom Leaflet divIcons
@@ -93,7 +42,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
       try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
     }
 
-    const stopList = buildStopList(trip, tripData)
+    const stopList = buildRouteStops(trip, tripData)
     if (stopList.length === 0) { setStatus('error'); return }
 
     setStatus('geocoding')
@@ -127,8 +76,8 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
       leafletRef.current = null
     }
 
-    // stops[i] must align 1:1 with coords[i] — both built from the same buildStopList call
-    const stops = buildStopList(trip, tripData)
+    // stops[i] must align 1:1 with coords[i] — both built from the same buildRouteStops call
+    const stops = buildRouteStops(trip, tripData)
 
     import('leaflet').then(L => {
       if (!mapDivRef.current) return
@@ -210,6 +159,12 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, coords])
 
+  function handleRegenerate() {
+    localStorage.removeItem(`trip-geocode-v5-${tripId}`)
+    setCoords([])
+    setStatus('idle')
+  }
+
   if (!isOpen) return null
 
   const stopCount = coords.filter(c => c.lat !== null).length
@@ -257,10 +212,19 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
                 <p className="text-[12px] text-soft">Locating stops… this may take a moment</p>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line"
-            >×</button>
+            <div className="flex items-center gap-2">
+              {(status === 'ready' || status === 'error') && (
+                <button
+                  onClick={handleRegenerate}
+                  title="Re-geocode stops"
+                  className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-base leading-none active:bg-line"
+                >↺</button>
+              )}
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line"
+              >×</button>
+            </div>
           </div>
 
           {/* Map area */}
@@ -274,12 +238,12 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
                 />
                 <p className="text-soft text-[14px]">
                   {status === 'geocoding'
-                    ? `Looking up ${buildStopList(trip, tripData).length} stops…`
+                    ? `Looking up ${buildRouteStops(trip, tripData).length} stops…`
                     : 'Preparing map…'}
                 </p>
                 {status === 'geocoding' && (
                   <p className="text-[12px] text-soft px-8 text-center">
-                    Each stop is geocoded individually — takes ~{buildStopList(trip, tripData).length}s
+                    Each stop is geocoded individually — takes ~{buildRouteStops(trip, tripData).length}s
                   </p>
                 )}
               </div>

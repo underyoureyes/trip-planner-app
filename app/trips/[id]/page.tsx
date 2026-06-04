@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Trip, TripData, Day, Eating, DaySection, Stop } from '@/lib/types'
 import { buildRouteDayUrl } from '@/lib/navigation'
+import { getAccommodationEntries } from '@/lib/trip-stops'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
 import AddStopSheet from '@/components/trip/AddStopSheet'
@@ -57,12 +58,7 @@ function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: 
 }
 
 function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: number) => void }) {
-  const entries: { day: Day; dayIdx: number; stop: Stop }[] = []
-  days.forEach((day, dayIdx) => {
-    day.stops.forEach(stop => {
-      if (stop.type === 'hotel') entries.push({ day, dayIdx, stop })
-    })
-  })
+  const entries = getAccommodationEntries({ days })
 
   if (entries.length === 0) {
     return (
