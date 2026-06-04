@@ -26,7 +26,8 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { locations } = await request.json() as { locations: string[] }
+  const body = await request.json() as { locations: string[]; country_hint?: string }
+  const { locations, country_hint } = body
   if (!Array.isArray(locations) || locations.length === 0) {
     return NextResponse.json({ results: [] })
   }
@@ -34,7 +35,9 @@ export async function POST(
   const results: GeocodedPoint[] = []
 
   for (let i = 0; i < locations.length; i++) {
-    const q = locations[i]
+    const rawQ = locations[i]
+    // Append country hint to bare place names to avoid wrong-continent geocoding
+    const q = country_hint && !rawQ.includes(',') ? `${rawQ}, ${country_hint}` : rawQ
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`
       const res = await fetch(url, {
@@ -42,12 +45,12 @@ export async function POST(
       })
       const data = await res.json() as Array<{ lat: string; lon: string }>
       if (data[0]) {
-        results.push({ query: q, lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
+        results.push({ query: rawQ, lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
       } else {
-        results.push({ query: q, lat: null, lon: null })
+        results.push({ query: rawQ, lat: null, lon: null })
       }
     } catch {
-      results.push({ query: q, lat: null, lon: null })
+      results.push({ query: rawQ, lat: null, lon: null })
     }
     // Nominatim policy: max 1 request/second
     if (i < locations.length - 1) await new Promise(r => setTimeout(r, 1100))

@@ -25,20 +25,35 @@ function buildStopList(trip: Trip, tripData: TripData): StopInfo[] {
   const origin = trip.intake_form?.origin?.split(',')[0]?.trim()
   if (origin) stops.push({ name: origin, isFirst: true, isLast: false, highlight: false })
 
-  days.forEach((day, i) => {
-    const location = day.overnight_location ||
-      day.stops.find(s => s.type === 'hotel')?.name ||
-      `Day ${day.day_number}`
+  for (const day of days) {
+    // Hotel type, Airbnb/self-catering (has check_in/check_out), or any stop with a booking_ref
+    const accommodation = day.stops.find(
+      s => s.type === 'hotel' || Boolean(s.check_in) || Boolean(s.check_out) || Boolean(s.booking_ref)
+    )
+    const location = day.overnight_location || accommodation?.name
+    // Skip days with no resolved location — avoids geocoding "Day 7" → wrong continent
+    if (!location) continue
+
     stops.push({
       name: location,
       isFirst: false,
-      isLast: i === days.length - 1,
+      isLast: false,
       highlight: day.highlight === true,
       date: day.date,
     })
-  })
+  }
+
+  // Mark actual last stop
+  if (stops.length > 1) stops[stops.length - 1].isLast = true
 
   return stops
+}
+
+// Extract country context from intake origin e.g. "Glasgow, Scotland" → "Scotland"
+function getCountryHint(trip: Trip): string {
+  const origin = trip.intake_form?.origin || ''
+  const parts = origin.split(',').map(p => p.trim()).filter(Boolean)
+  return parts.length > 1 ? parts.slice(1).join(', ') : ''
 }
 
 // Marker HTML for custom Leaflet divIcons
@@ -66,7 +81,7 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     if (!isOpen) { setVisible(false); return }
     setTimeout(() => setVisible(true), 10)
 
-    const cacheKey = `trip-geocode-${tripId}`
+    const cacheKey = `trip-geocode-v2-${tripId}`
     const cached = localStorage.getItem(cacheKey)
     if (cached) {
       try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
@@ -79,11 +94,14 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     fetch(`/api/trips/${tripId}/geocode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations: stopList.map(s => s.name) }),
+      body: JSON.stringify({
+        locations: stopList.map(s => s.name),
+        country_hint: getCountryHint(trip),
+      }),
     })
       .then(r => r.json())
       .then(({ results }: { results: GeocodedPoint[] }) => {
-        localStorage.setItem(cacheKey, JSON.stringify(results))
+        try { localStorage.setItem(cacheKey, JSON.stringify(results)) } catch { /* quota */ }
         setCoords(results)
         setStatus('ready')
       })
