@@ -52,7 +52,7 @@ export function buildRouteStops(trip: Trip, tripData: TripData): RouteStop[] {
   const days = tripData.days || []
   const stops: RouteStop[] = []
 
-  const origin = trip.intake_form?.origin?.split(',')[0]?.trim()
+  const origin = trip.intake_form?.origin?.trim()
   if (origin) {
     stops.push({ name: origin, isFirst: true, isLast: false, highlight: false })
   }

@@ -41,7 +41,7 @@ export async function POST(
       ? `${rawQ}, ${country_hint}` : rawQ
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
+      const timeout = setTimeout(() => controller.abort(), 10000)
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`
       const res = await fetch(url, {
         headers: { 'User-Agent': 'TripPlannerApp/1.0 (road trip planner)' },
