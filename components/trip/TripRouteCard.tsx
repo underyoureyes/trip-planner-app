@@ -31,19 +31,12 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   const leafletRef  = useRef<ReturnType<typeof import('leaflet')['map']> | null>(null)
   const tripId = trip.id
 
-  // Load geocoded coords (cache keyed on stop names — auto-busts when trip changes)
+  // Geocode stops every time the card opens — no caching
   useEffect(() => {
-    if (!isOpen) { setVisible(false); return }
+    if (!isOpen) { setVisible(false); setCoords([]); setStatus('idle'); return }
     setTimeout(() => setVisible(true), 10)
 
     const stopList = buildRouteStops(trip, tripData)
-    const stopKey  = stopList.map(s => s.name).join('|')
-    const cacheKey = `trip-geocode-v6-${tripId}-${stopKey}`
-
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) {
-      try { setCoords(JSON.parse(cached)); setStatus('ready'); return } catch { /* ignore */ }
-    }
     if (stopList.length === 0) { setStatus('error'); return }
 
     setStatus('geocoding')
@@ -57,7 +50,6 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
     })
       .then(r => r.json())
       .then(({ results }: { results: GeocodedPoint[] }) => {
-        try { localStorage.setItem(cacheKey, JSON.stringify(results)) } catch { /* quota */ }
         setCoords(results)
         setStatus('ready')
       })
@@ -160,15 +152,6 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, coords])
 
-  function handleRegenerate() {
-    // Clear all cached geocode entries for this trip
-    Object.keys(localStorage)
-      .filter(k => k.startsWith(`trip-geocode-`) && k.includes(tripId))
-      .forEach(k => localStorage.removeItem(k))
-    setCoords([])
-    setStatus('idle')
-  }
-
   if (!isOpen) return null
 
   const stopCount = coords.filter(c => c.lat !== null).length
@@ -216,19 +199,10 @@ export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props
                 <p className="text-[12px] text-soft">Locating stops… this may take a moment</p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {(status === 'ready' || status === 'error') && (
-                <button
-                  onClick={handleRegenerate}
-                  title="Re-geocode stops"
-                  className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-base leading-none active:bg-line"
-                >↺</button>
-              )}
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line"
-              >×</button>
-            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line"
+            >×</button>
           </div>
 
           {/* Map area */}
