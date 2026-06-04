@@ -1,8 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Trip, TripData } from '@/lib/types'
-import type { GeocodedPoint } from '@/app/api/trips/[id]/geocode/route'
-import { buildRouteStops, getCountryHint, type RouteStop } from '@/lib/trip-stops'
 
 interface Props {
   isOpen: boolean
@@ -11,259 +9,198 @@ interface Props {
   tripData: TripData
 }
 
-// Marker HTML for custom Leaflet divIcons
-function markerHtml(label: string, color: string, border: string) {
-  return `<div style="
-    background:${color};color:#fff;
-    width:30px;height:30px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:12px;font-family:-apple-system,sans-serif;
-    border:2.5px solid ${border};
-    box-shadow:0 2px 6px rgba(0,0,0,0.40);
-  ">${label}</div>`
+// All stop types that represent navigable destinations
+const NAV_TYPES = new Set([
+  'hotel', 'sightseeing', 'activity', 'viewpoint', 'town',
+  'restaurant', 'cafe', 'pub', 'beach', 'nature',
+  'castle', 'distillery', 'museum', 'other',
+])
+
+const TYPE_ICON: Record<string, string> = {
+  hotel: '🛏️', sightseeing: '🏛️', activity: '🎯', viewpoint: '📸',
+  town: '🏘️', restaurant: '🍽️', cafe: '☕', pub: '🍺',
+  beach: '🏖️', nature: '🌿', castle: '🏰', distillery: '🥃',
+  museum: '🏛️', other: '📍',
+}
+
+interface DayGroup {
+  dayNum: number
+  dayTitle: string
+  dayDate?: string
+  stops: Array<{ name: string; address?: string; type: string }>
+}
+
+function buildRouteData(trip: Trip, tripData: TripData): { waypoints: string[]; groups: DayGroup[] } {
+  const waypoints: string[] = []
+  const groups: DayGroup[] = []
+
+  const origin = trip.intake_form?.origin?.trim()
+  if (origin) waypoints.push(origin)
+
+  for (const day of tripData.days || []) {
+    const relevant = day.stops.filter(s => NAV_TYPES.has(s.type))
+    if (relevant.length > 0) {
+      groups.push({
+        dayNum: day.day_number,
+        dayTitle: day.title || `Day ${day.day_number}`,
+        dayDate: day.date,
+        stops: relevant.map(s => ({ name: s.name, address: s.address, type: s.type })),
+      })
+    }
+    for (const stop of relevant) {
+      const loc = stop.address || stop.name
+      if (loc) waypoints.push(loc)
+    }
+  }
+
+  return { waypoints, groups }
 }
 
 export default function TripRouteCard({ isOpen, onClose, trip, tripData }: Props) {
-  const [visible,     setVisible]     = useState(false)
-  const [status,      setStatus]      = useState<'idle' | 'geocoding' | 'ready' | 'error'>('idle')
-  const [coords,      setCoords]      = useState<GeocodedPoint[]>([])
-  const [routeStops,  setRouteStops]  = useState<RouteStop[]>([])
-  const mapDivRef   = useRef<HTMLDivElement>(null)
-  const leafletRef  = useRef<ReturnType<typeof import('leaflet')['map']> | null>(null)
-  const tripId = trip.id
+  const [visible, setVisible] = useState(false)
 
-  // Geocode stops every time the card opens — store stops alongside coords to guarantee alignment
   useEffect(() => {
-    if (!isOpen) { setVisible(false); setCoords([]); setRouteStops([]); setStatus('idle'); return }
-    setTimeout(() => setVisible(true), 10)
-
-    const stopList = buildRouteStops(trip, tripData)
-    if (stopList.length === 0) { setStatus('error'); return }
-
-    setStatus('geocoding')
-    fetch(`/api/trips/${tripId}/geocode`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        locations: stopList.map(s => s.name),
-        country_hint: getCountryHint(trip),
-      }),
-    })
-      .then(r => r.json())
-      .then(({ results }: { results: GeocodedPoint[] }) => {
-        setRouteStops(stopList)   // save stops from the same call that built locations
-        setCoords(results)
-        setStatus('ready')
-      })
-      .catch(() => setStatus('error'))
-  }, [isOpen, tripId, trip, tripData])
-
-  // Init Leaflet map once coords are ready and sheet is visible
-  useEffect(() => {
-    if (status !== 'ready' || !mapDivRef.current || coords.length === 0) return
-    if (!coords.some(c => c.lat !== null)) return
-
-    if (leafletRef.current) {
-      leafletRef.current.remove()
-      leafletRef.current = null
-    }
-
-    // routeStops[i] aligns 1:1 with coords[i] — both come from the same geocode fetch
-    const stops = routeStops
-
-    import('leaflet').then(L => {
-      if (!mapDivRef.current) return
-
-      // Fix default icon paths broken by Next.js bundler
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      })
-
-      const map = L.map(mapDivRef.current, {
-        zoomControl: true,
-        attributionControl: true,
-      })
-      leafletRef.current = map
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map)
-
-      const latlngs: [number, number][] = []
-      let markerNum = 1 // visible numbering for mid-trip stops
-
-      // Iterate over full coords array — use index i to align with stops[i]
-      coords.forEach((pt, i) => {
-        if (pt.lat === null || pt.lon === null) return // skip failed geocodes, keep index intact
-
-        const stop = stops[i] || { isFirst: false, isLast: false, highlight: false, name: pt.query }
-
-        let color = '#2563a8'
-        let border = '#bfdbfe'
-        if (stop.isFirst)   { color = '#2d6a4f'; border = '#6ee7b7' }
-        if (stop.isLast)    { color = '#b45309'; border = '#fde68a' }
-        if (stop.highlight && !stop.isFirst && !stop.isLast) { color = '#7c3aed'; border = '#c4b5fd' }
-
-        const label = stop.isFirst ? 'S' : stop.isLast ? 'F' : String(markerNum++)
-
-        const icon = L.divIcon({
-          html: markerHtml(label, color, border),
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
-          popupAnchor: [0, -18],
-          className: '',
-        })
-
-        const dateStr = stop.date
-          ? new Date(stop.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-          : ''
-
-        L.marker([pt.lat, pt.lon], { icon })
-          .bindPopup(`<strong>${pt.query}</strong>${dateStr ? `<br/><span style="color:#6b7280;font-size:12px">${dateStr}</span>` : ''}`)
-          .addTo(map)
-
-        latlngs.push([pt.lat, pt.lon])
-      })
-
-      if (latlngs.length > 1) {
-        L.polyline(latlngs, {
-          color: '#2563a8',
-          weight: 3.5,
-          opacity: 0.85,
-          dashArray: '10 7',
-        }).addTo(map)
-
-        map.fitBounds(L.latLngBounds(latlngs), { padding: [48, 48], maxZoom: 12 })
-      } else if (latlngs.length === 1) {
-        map.setView(latlngs[0], 9)
-      }
-    })
-
-    return () => {
-      leafletRef.current?.remove()
-      leafletRef.current = null
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, coords, routeStops])
+    if (!isOpen) { setVisible(false); return }
+    const t = setTimeout(() => setVisible(true), 10)
+    return () => clearTimeout(t)
+  }, [isOpen])
 
   if (!isOpen) return null
 
-  const stopCount = coords.filter(c => c.lat !== null).length
+  const { waypoints, groups } = buildRouteData(trip, tripData)
+  const origin = trip.intake_form?.origin?.trim()
+
+  const googleUrl = waypoints.length === 0 ? '' :
+    waypoints.length === 1
+      ? `https://www.google.com/maps/search/?q=${encodeURIComponent(waypoints[0])}`
+      : `https://www.google.com/maps/dir/${waypoints.map(w => encodeURIComponent(w)).join('/')}`
+
+  const appleUrl = waypoints.length < 2 ? '' :
+    `maps://maps.apple.com/?saddr=${encodeURIComponent(waypoints[0])}&daddr=${encodeURIComponent(waypoints[waypoints.length - 1])}&dirflg=d`
+
+  const totalStops = waypoints.length
 
   return (
-    <>
-      {/* Leaflet CSS */}
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
+    <div className="fixed inset-0 z-[70]">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 transition-opacity duration-300"
+        style={{ background: visible ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0)' }}
+        onClick={onClose}
       />
 
-      <div className="fixed inset-0 z-[70]">
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{ background: visible ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0)' }}
-          onClick={onClose}
-        />
+      {/* Sheet */}
+      <div
+        className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl flex flex-col"
+        style={{
+          maxHeight: '88vh',
+          transform: visible ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
+        }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-line" />
+        </div>
 
-        {/* Sheet — nearly full screen so the map has room */}
-        <div
-          className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl flex flex-col"
-          style={{
-            height: '92vh',
-            transform: visible ? 'translateY(0)' : 'translateY(100%)',
-            transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
-          }}
-        >
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full bg-line" />
-          </div>
-
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b border-line flex-shrink-0">
+        {/* Header + buttons */}
+        <div className="px-5 pt-1 pb-4 border-b border-line flex-shrink-0">
+          <div className="flex items-start justify-between mb-3">
             <div>
-              <h2 className="font-serif text-[20px] text-ink">Route map</h2>
-              {status === 'ready' && stopCount > 0 && (
-                <p className="text-[12px] text-soft">{stopCount} stops plotted · tap any pin for details</p>
-              )}
-              {status === 'geocoding' && (
-                <p className="text-[12px] text-soft">Locating stops… this may take a moment</p>
-              )}
+              <h2 className="font-serif text-[20px] text-ink">Full route</h2>
+              <p className="text-[12px] text-soft">{totalStops} stops · tap a stop to navigate individually</p>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line"
+              className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line mt-1"
             >×</button>
           </div>
 
-          {/* Map area */}
-          <div className="flex-1 relative overflow-hidden">
-            {/* Loading overlay */}
-            {(status === 'idle' || status === 'geocoding') && (
-              <div className="absolute inset-0 z-10 bg-mist flex flex-col items-center justify-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full border-2 animate-spin"
-                  style={{ borderColor: '#d1d9e6', borderTopColor: '#2563a8' }}
-                />
-                <p className="text-soft text-[14px]">
-                  {status === 'geocoding'
-                    ? `Looking up ${routeStops.length || buildRouteStops(trip, tripData).length} stops…`
-                    : 'Preparing map…'}
-                </p>
-                {status === 'geocoding' && (
-                  <p className="text-[12px] text-soft px-8 text-center">
-                    Each stop is geocoded individually — takes ~{routeStops.length || buildRouteStops(trip, tripData).length}s
-                  </p>
-                )}
-              </div>
+          <div className="flex gap-3">
+            {googleUrl ? (
+              <a
+                href={googleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-[14px] font-semibold no-underline active:opacity-80"
+                style={{ background: '#2d6a4f', color: '#fff' }}
+              >
+                <span>🗺️</span> Google Maps
+              </a>
+            ) : (
+              <div className="flex-1 py-3.5 rounded-xl text-[14px] font-semibold text-center bg-mist text-soft">No stops yet</div>
             )}
-
-            {status === 'error' && (
-              <div className="absolute inset-0 z-10 bg-mist flex flex-col items-center justify-center gap-3 px-8 text-center">
-                <p className="text-3xl">⚠️</p>
-                <p className="text-ink font-semibold">Could not load map</p>
-                <p className="text-soft text-[13px]">Check your internet connection and try again.</p>
-              </div>
+            {appleUrl && (
+              <a
+                href={appleUrl}
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-[14px] font-semibold no-underline active:opacity-80"
+                style={{ background: '#dbeafe', color: '#2563a8' }}
+              >
+                <span>🍎</span> Apple Maps
+              </a>
             )}
-
-            {/* Leaflet map div */}
-            <div
-              ref={mapDivRef}
-              className="w-full h-full"
-              style={{ background: '#e8edf5' }}
-            />
           </div>
+        </div>
 
-          {/* Legend */}
-          {status === 'ready' && stopCount > 0 && (
-            <div className="flex-shrink-0 px-5 py-3 border-t border-line flex items-center gap-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {[
-                { color: '#2d6a4f', label: 'Start' },
-                { color: '#2563a8', label: 'Overnight' },
-                { color: '#7c3aed', label: 'Highlight' },
-                { color: '#b45309', label: 'End' },
-              ].map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-                  <span className="text-[12px] text-soft">{label}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
-                <div className="w-5 border-t-2 border-dashed" style={{ borderColor: '#2563a8' }} />
-                <span className="text-[12px] text-soft">Route</span>
+        {/* Stop list */}
+        <div className="flex-1 overflow-y-auto pb-8">
+          {/* Origin pin */}
+          {origin && (
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-[#f0f4fa]">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white text-[11px] font-bold"
+                style={{ background: '#2d6a4f' }}
+              >S</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-ink truncate">{origin}</p>
+                <p className="text-[11px] text-soft">Starting point</p>
               </div>
+            </div>
+          )}
+
+          {groups.map(({ dayNum, dayTitle, dayDate, stops }) => (
+            <div key={dayNum}>
+              {/* Day header */}
+              <div className="px-5 py-2.5 bg-mist border-b border-[#e8edf5]">
+                <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-soft">
+                  Day {dayNum}{dayDate ? ` · ${new Date(dayDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}
+                </p>
+                <p className="text-[12px] text-ink font-medium truncate">{dayTitle}</p>
+              </div>
+
+              {stops.map((stop, i) => {
+                const loc = stop.address || stop.name
+                const navUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`
+                return (
+                  <a
+                    key={i}
+                    href={navUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-5 py-3 border-b border-[#f0f4fa] no-underline active:bg-mist"
+                  >
+                    <span className="text-[18px] w-7 text-center flex-shrink-0">{TYPE_ICON[stop.type] || '📍'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-ink truncate">{stop.name}</p>
+                      {stop.address && stop.address !== stop.name && (
+                        <p className="text-[11px] text-soft truncate">{stop.address}</p>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-soft flex-shrink-0">Nav →</span>
+                  </a>
+                )
+              })}
+            </div>
+          ))}
+
+          {waypoints.length === 0 && (
+            <div className="px-5 py-12 text-center text-soft">
+              <p className="text-3xl mb-3">📍</p>
+              <p>No stops found in this trip</p>
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
