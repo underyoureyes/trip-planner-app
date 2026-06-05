@@ -52,54 +52,9 @@ function OverviewSection({
 
   return (
     <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
-      <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Your Itinerary</p>
-      <div className="space-y-2">
-        {days.map((day, i) => {
-          const driveKm   = day.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0)
-          const stopCount = day.stops.filter(s => s.type !== 'drive').length
-          const isHighlight = day.highlight === true
-
-          const meta: string[] = []
-          if (driveKm > 0)  meta.push(`~${Math.round(driveKm)} km`)
-          if (stopCount > 1) meta.push(`${stopCount} stops`)
-          if (meta.length === 0 && day.overnight_location) meta.push(`🌙 ${day.overnight_location}`)
-
-          return (
-            <button
-              key={i}
-              onClick={() => onSelectDay(i)}
-              className="w-full flex items-center gap-3 bg-white rounded-card px-3 py-3 text-left transition-transform active:scale-[0.98]"
-              style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}
-            >
-              <div
-                className="flex-shrink-0 flex flex-col items-center justify-center"
-                style={{ width: 44, height: 44, minWidth: 44, background: isHighlight ? '#c9963a' : '#2563a8', borderRadius: 8 }}
-              >
-                <span className="text-white font-bold text-[18px] leading-none">{day.day_number}</span>
-                <span className="text-white text-[10px] font-bold leading-none mt-0.5">DAY</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                {day.date && (
-                  <p className="text-[11px] text-soft">
-                    {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-                  </p>
-                )}
-                <p className="text-[14px] font-semibold text-ink leading-snug truncate">{day.title || `Day ${day.day_number}`}</p>
-                {day.overnight_location && stopCount > 0 && (
-                  <p className="text-[12px] text-soft truncate">🌙 {day.overnight_location}</p>
-                )}
-                {meta.length > 0 && (
-                  <p className="text-[12px] text-soft">{meta.join(' · ')}</p>
-                )}
-              </div>
-              <span className="flex-shrink-0 text-[18px]" style={{ color: '#d1d9e6' }}>›</span>
-            </button>
-          )
-        })}
-      </div>
 
       {/* ── Emergency & useful contacts ── */}
-      <div className="mt-5">
+      <div className="mb-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft">Emergency &amp; Useful Contacts</p>
           {isOwner && !adding && (
@@ -202,6 +157,52 @@ function OverviewSection({
             </div>
           )}
         </div>
+      </div>
+
+      <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Your Itinerary</p>
+      <div className="space-y-2">
+        {days.map((day, i) => {
+          const driveKm   = day.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0)
+          const stopCount = day.stops.filter(s => s.type !== 'drive').length
+          const isHighlight = day.highlight === true
+
+          const meta: string[] = []
+          if (driveKm > 0)  meta.push(`~${Math.round(driveKm)} km`)
+          if (stopCount > 1) meta.push(`${stopCount} stops`)
+          if (meta.length === 0 && day.overnight_location) meta.push(`🌙 ${day.overnight_location}`)
+
+          return (
+            <button
+              key={i}
+              onClick={() => onSelectDay(i)}
+              className="w-full flex items-center gap-3 bg-white rounded-card px-3 py-3 text-left transition-transform active:scale-[0.98]"
+              style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}
+            >
+              <div
+                className="flex-shrink-0 flex flex-col items-center justify-center"
+                style={{ width: 44, height: 44, minWidth: 44, background: isHighlight ? '#c9963a' : '#2563a8', borderRadius: 8 }}
+              >
+                <span className="text-white font-bold text-[18px] leading-none">{day.day_number}</span>
+                <span className="text-white text-[10px] font-bold leading-none mt-0.5">DAY</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                {day.date && (
+                  <p className="text-[11px] text-soft">
+                    {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                )}
+                <p className="text-[14px] font-semibold text-ink leading-snug truncate">{day.title || `Day ${day.day_number}`}</p>
+                {day.overnight_location && stopCount > 0 && (
+                  <p className="text-[12px] text-soft truncate">🌙 {day.overnight_location}</p>
+                )}
+                {meta.length > 0 && (
+                  <p className="text-[12px] text-soft">{meta.join(' · ')}</p>
+                )}
+              </div>
+              <span className="flex-shrink-0 text-[18px]" style={{ color: '#d1d9e6' }}>›</span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
