@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import type { Trip, TripData, Day, Eating, DaySection, Stop } from '@/lib/types'
+import type { Trip, TripData, Day, Eating, DaySection, Stop, EmergencyContact } from '@/lib/types'
 import { buildRouteDayUrl } from '@/lib/navigation'
 import { getAccommodationEntries } from '@/lib/trip-stops'
 import DayTabs from '@/components/trip/DayTabs'
@@ -14,15 +14,42 @@ import TripRouteCard from '@/components/trip/TripRouteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
+const CONTACT_TYPES: EmergencyContact['type'][] = ['vet', 'hospital', 'pharmacy', 'police', 'breakdown', 'other']
+const CONTACT_ICON: Record<EmergencyContact['type'], string> = {
+  vet: '🐾', hospital: '🏥', pharmacy: '💊', police: '🚨', breakdown: '🔧', other: '📞',
+}
+
 function OverviewSection({
   days,
   emergencyContacts,
+  isOwner,
   onSelectDay,
+  onUpdateContacts,
 }: {
   days: Day[]
-  emergencyContacts?: import('@/lib/types').EmergencyContact[]
+  emergencyContacts?: EmergencyContact[]
+  isOwner: boolean
   onSelectDay: (i: number) => void
+  onUpdateContacts: (contacts: EmergencyContact[]) => void
 }) {
+  const contacts = emergencyContacts || []
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState<{ name: string; type: EmergencyContact['type']; phone: string; notes: string }>({
+    name: '', type: 'vet', phone: '', notes: '',
+  })
+
+  function commitAdd() {
+    if (!draft.name.trim()) return
+    const c: EmergencyContact = { name: draft.name.trim(), type: draft.type, phone: draft.phone.trim() || undefined, notes: draft.notes.trim() || undefined }
+    onUpdateContacts([...contacts, c])
+    setDraft({ name: '', type: 'vet', phone: '', notes: '' })
+    setAdding(false)
+  }
+
+  function removeContact(idx: number) {
+    onUpdateContacts(contacts.filter((_, i) => i !== idx))
+  }
+
   return (
     <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
       <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Your Itinerary</p>
@@ -72,45 +99,110 @@ function OverviewSection({
       </div>
 
       {/* ── Emergency & useful contacts ── */}
-      {emergencyContacts && emergencyContacts.length > 0 && (
-        <div className="mt-5">
-          <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Emergency &amp; Useful Contacts</p>
-          <div className="bg-white rounded-card overflow-hidden" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)', border: '1px solid rgba(220,38,38,0.12)' }}>
-            {emergencyContacts.map((c, i) => {
-              const typeIcon =
-                c.type === 'vet'       ? '🐾' :
-                c.type === 'hospital'  ? '🏥' :
-                c.type === 'police'    ? '🚨' :
-                c.type === 'pharmacy'  ? '💊' :
-                c.type === 'breakdown' ? '🔧' : '📞'
-              const href = c.phone
-                ? `tel:${c.phone.replace(/\s/g, '')}`
-                : c.address
-                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
-                  : undefined
-              const inner = (
-                <>
-                  <span className="text-[22px] w-8 text-center flex-shrink-0">{typeIcon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
-                    {c.phone  && <p className="text-[13px] text-sky">{c.phone}</p>}
-                    {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
-                    {c.notes  && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
-                  </div>
-                  {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0">Call</span>}
-                  {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0">Map →</span>}
-                </>
-              )
-              const cls = `flex items-center gap-3 px-4 py-3.5 no-underline ${i < emergencyContacts.length - 1 ? 'border-b border-red-100' : ''}`
-              return href ? (
-                <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
-              ) : (
-                <div key={i} className={cls}>{inner}</div>
-              )
-            })}
-          </div>
+      <div className="mt-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft">Emergency &amp; Useful Contacts</p>
+          {isOwner && !adding && (
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1 text-[12px] font-semibold text-sky active:opacity-70"
+            >
+              <span className="text-[18px] leading-none font-bold">+</span> Add
+            </button>
+          )}
         </div>
-      )}
+
+        <div className="bg-white rounded-card overflow-hidden" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)', border: '1px solid rgba(220,38,38,0.12)' }}>
+          {contacts.length === 0 && !adding && (
+            <div className="px-4 py-5 text-center">
+              <p className="text-[13px] text-soft">No emergency contacts yet</p>
+              {isOwner && (
+                <p className="text-[12px] text-soft mt-1">Tap <strong className="text-ink">+ Add</strong> to add a vet, hospital, pharmacy or breakdown number</p>
+              )}
+            </div>
+          )}
+
+          {contacts.map((c, i) => {
+            const icon = CONTACT_ICON[c.type] || '📞'
+            const href = c.phone
+              ? `tel:${c.phone.replace(/\s/g, '')}`
+              : c.address
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                : undefined
+            const inner = (
+              <>
+                <span className="text-[22px] w-8 text-center flex-shrink-0">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
+                  <p className="text-[12px] text-soft capitalize">{c.type}</p>
+                  {c.phone   && <p className="text-[13px] text-sky">{c.phone}</p>}
+                  {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                  {c.notes   && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
+                </div>
+                {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
+                {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
+                {isOwner && (
+                  <button
+                    onClick={e => { e.preventDefault(); removeContact(i) }}
+                    className="w-6 h-6 flex items-center justify-center rounded-full text-[14px] active:bg-red-100 flex-shrink-0"
+                    style={{ color: '#ef4444' }}
+                  >×</button>
+                )}
+              </>
+            )
+            const cls = `flex items-center gap-3 px-4 py-3.5 no-underline w-full ${i < contacts.length - 1 || adding ? 'border-b border-red-100' : ''}`
+            return href ? (
+              <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
+            ) : (
+              <div key={i} className={cls}>{inner}</div>
+            )
+          })}
+
+          {/* Add form */}
+          {adding && (
+            <div className="px-4 py-4 space-y-3 bg-red-50">
+              <div className="flex gap-2">
+                <select
+                  value={draft.type}
+                  onChange={e => setDraft(d => ({ ...d, type: e.target.value as EmergencyContact['type'] }))}
+                  className="input-field bg-white text-[14px] flex-shrink-0"
+                  style={{ width: 120 }}
+                >
+                  {CONTACT_TYPES.map(t => (
+                    <option key={t} value={t}>{CONTACT_ICON[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Name / place"
+                  value={draft.name}
+                  onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                  autoFocus
+                />
+              </div>
+              <input
+                type="tel"
+                placeholder="Phone number (optional)"
+                value={draft.phone}
+                onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
+                className="input-field bg-white text-[14px]"
+              />
+              <input
+                type="text"
+                placeholder="Notes e.g. 24hr, nearest to York (optional)"
+                value={draft.notes}
+                onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
+                className="input-field bg-white text-[14px]"
+              />
+              <div className="flex gap-2 pt-1">
+                <button onClick={commitAdd} disabled={!draft.name.trim()} className="btn-primary flex-1 disabled:opacity-40">Save</button>
+                <button onClick={() => setAdding(false)} className="btn-secondary flex-1">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -517,6 +609,13 @@ export default function TripViewPage() {
     await saveData(updated)
   }, [tripData, saveData])
 
+  const handleUpdateContacts = useCallback(async (contacts: EmergencyContact[]) => {
+    if (!tripData) return
+    const updated: TripData = { ...tripData, emergency_contacts: contacts }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
   const handleRestore = useCallback(async (entry: DeletedEntry) => {
     if (!tripData) return
     const { stop, dayIdx, stopIdx } = entry
@@ -705,7 +804,9 @@ export default function TripViewPage() {
         <OverviewSection
           days={days}
           emergencyContacts={tripData?.emergency_contacts}
+          isOwner={isOwner}
           onSelectDay={setActiveDay}
+          onUpdateContacts={handleUpdateContacts}
         />
       )}
       {activeDay === -1 && days.length === 0 && (
