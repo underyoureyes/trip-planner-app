@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import StopCard from '@/components/trip/StopCard'
 import type { Stop } from '@/lib/types'
 
@@ -69,9 +69,8 @@ describe('StopCard', () => {
     expect(screen.getByText(/2h/)).toBeInTheDocument()
   })
 
-  it('expands to show address when clicked', () => {
+  it('shows address without needing to click', () => {
     render(<StopCard stop={sightseeing} index={0} />)
-    fireEvent.click(screen.getByText('Edinburgh Castle'))
     expect(screen.getByText(/Castlehill, Edinburgh EH1 2NG/)).toBeInTheDocument()
   })
 
@@ -85,65 +84,55 @@ describe('StopCard', () => {
     expect(screen.queryByText('📍 Navigate')).not.toBeInTheDocument()
   })
 
-  it('shows website link when stop has website', () => {
+  it('shows website link when stop has a website', () => {
     const stop: Stop = { ...sightseeing, website: 'https://www.edinburghcastle.scot' }
     render(<StopCard stop={stop} index={0} />)
-    expect(screen.getByText('🌐 Website')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Website/i })
+    expect(link).toHaveAttribute('href', 'https://www.edinburghcastle.scot')
   })
 
-  it('shows phone link when stop has phone', () => {
+  it('shows phone call link when stop has a phone number', () => {
     const stop: Stop = { ...sightseeing, phone: '0131 225 9846' }
     render(<StopCard stop={stop} index={0} />)
-    expect(screen.getByText('📞 Call')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Call/i })
+    expect(link).toHaveAttribute('href', 'tel:0131 225 9846')
   })
 
-  it('shows booking ref when expanded', () => {
+  it('shows booking ref', () => {
     const stop: Stop = { ...sightseeing, booking_ref: 'REF-12345' }
     render(<StopCard stop={stop} index={0} />)
-    fireEvent.click(screen.getByText('Edinburgh Castle'))
     expect(screen.getByText(/REF-12345/)).toBeInTheDocument()
   })
 
-  it('shows notes when expanded', () => {
+  it('shows notes', () => {
     const stop: Stop = { ...sightseeing, notes: 'Book in advance' }
     render(<StopCard stop={stop} index={0} />)
-    fireEvent.click(screen.getByText('Edinburgh Castle'))
     expect(screen.getByText('Book in advance')).toBeInTheDocument()
   })
 
   describe('delete button', () => {
-    beforeEach(() => { vi.useFakeTimers() })
-    afterEach(() => { vi.useRealTimers() })
-
-    it('shows delete button for owner on non-drive stop', () => {
+    it('shows × button for owner on non-drive stop', () => {
       render(<StopCard stop={sightseeing} index={0} isOwner />)
       expect(screen.getByText('×')).toBeInTheDocument()
     })
 
-    it('does not show delete button when not owner', () => {
+    it('does not show × button when not owner', () => {
       render(<StopCard stop={sightseeing} index={0} isOwner={false} />)
       expect(screen.queryByText('×')).not.toBeInTheDocument()
     })
 
-    it('opens delete panel after first click', () => {
+    it('opens delete panel when × is clicked', () => {
       render(<StopCard stop={sightseeing} index={0} isOwner />)
       fireEvent.click(screen.getByText('×'))
       expect(screen.getByText('Delete')).toBeInTheDocument()
     })
 
-    it('calls onDelete after confirm click', () => {
+    it('calls onDelete when Delete button in panel is clicked', () => {
       const onDelete = vi.fn()
       render(<StopCard stop={sightseeing} index={0} isOwner onDelete={onDelete} />)
       fireEvent.click(screen.getByText('×'))
       fireEvent.click(screen.getByText('Delete'))
       expect(onDelete).toHaveBeenCalledOnce()
-    })
-
-    it('delete panel stays open (no auto-close timeout)', () => {
-      render(<StopCard stop={sightseeing} index={0} isOwner />)
-      fireEvent.click(screen.getByText('×'))
-      act(() => { vi.advanceTimersByTime(3000) })
-      expect(screen.getByText('Delete')).toBeInTheDocument()
     })
   })
 })

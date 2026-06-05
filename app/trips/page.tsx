@@ -116,6 +116,13 @@ export default async function TripsPage() {
             )}
           </div>
         )}
+
+        {/* Footer */}
+        <div className="text-center pt-4 pb-2">
+          <Link href="/about" className="text-[12px] text-soft hover:text-sky transition-colors">
+            About this app
+          </Link>
+        </div>
       </div>
     </div>
   )
