@@ -59,9 +59,11 @@ const stack = [
   { name: 'Vercel', role: 'Edge deployment, automatic HTTPS, CI/CD from GitHub', color: '#000' },
 ]
 
-export default function AboutPage() {
+export default function AboutPage({ searchParams }: { searchParams: { next?: string } }) {
+  const nextUrl = searchParams.next ? `${searchParams.next}?from_about=1` : null
+
   return (
-    <div className="min-h-screen bg-mist">
+    <div className="min-h-screen bg-mist" style={{ paddingBottom: nextUrl ? 88 : 0 }}>
 
       {/* ── Hero ── */}
       <div className="bg-gradient-to-b from-[#1a1a2e] to-[#1e3a8a] px-6 pt-16 pb-14 text-center">
@@ -171,6 +173,19 @@ export default function AboutPage() {
         </section>
 
       </div>
+
+      {/* ── Sticky "Continue to trip" bar — shown when arriving from a shared link ── */}
+      {nextUrl && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-3" style={{ background: 'linear-gradient(to top, rgba(26,26,46,0.95) 60%, transparent)' }}>
+          <Link
+            href={nextUrl}
+            className="flex items-center justify-center gap-2 w-full max-w-lg mx-auto rounded-[16px] py-4 font-bold text-[16px] text-white"
+            style={{ background: 'linear-gradient(135deg, #2563a8 0%, #1e3a8a 100%)', boxShadow: '0 4px 20px rgba(37,99,168,0.5)' }}
+          >
+            View trip →
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Trip, TripData, Day, Eating, DaySection, Stop } from '@/lib/types'
 import { buildRouteDayUrl } from '@/lib/navigation'
@@ -279,7 +279,8 @@ const HERO_TEXTURE  = `url("data:image/svg+xml,%3Csvg width='60' height='60' vie
 
 export default function TripViewPage() {
   const { id } = useParams<{ id: string }>()
-  const router  = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
   const [trip,       setTrip]       = useState<Trip | null>(null)
   const [tripData,   setTripData]   = useState<TripData | null>(null)
@@ -323,10 +324,22 @@ export default function TripViewPage() {
 
     // /api/me only works when logged in — guests viewing a shared trip will get 401, that's fine
     const meRes = await fetch('/api/me')
+    const fromAbout = searchParams.get('from_about') === '1'
     if (meRes.ok) {
       const me = await meRes.json()
-      setIsOwner(me.id === data.trip.owner_id)
+      const owner = me.id === data.trip.owner_id
+      setIsOwner(owner)
+      if (!owner && !fromAbout) {
+        router.replace(`/about?next=${encodeURIComponent(`/trips/${id}`)}`)
+        return null
+      }
       if (me.profile) setProfile(me.profile)
+    } else {
+      // Guest (not logged in) viewing a shared trip
+      if (!fromAbout) {
+        router.replace(`/about?next=${encodeURIComponent(`/trips/${id}`)}`)
+        return null
+      }
     }
     return data.trip
   }
