@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { streamTripGeneration, parseTripJson } from '@/lib/claude'
+import { createTripStream, parseTripJson } from '@/lib/claude'
+import { recordUsage } from '@/lib/usage'
 import type { IntakeForm } from '@/lib/types'
 
 function sseEvent(data: object): string {
@@ -55,13 +56,24 @@ export async function POST(
         let rawJson = ''
         let chunkCount = 0
 
-        for await (const chunk of streamTripGeneration(settings.claude_api_key, trip.intake_form as IntakeForm)) {
-          rawJson += chunk
-          chunkCount++
-          if (chunkCount % 50 === 0) {
-            send({ type: 'progress', message: `Generating… (${Math.round(rawJson.length / 1000)}k chars)` })
+        const claudeStream = createTripStream(settings.claude_api_key, trip.intake_form as IntakeForm)
+        for await (const chunk of claudeStream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            rawJson += chunk.delta.text
+            chunkCount++
+            if (chunkCount % 50 === 0) {
+              send({ type: 'progress', message: `Generating… (${Math.round(rawJson.length / 1000)}k chars)` })
+            }
           }
         }
+        const finalMsg = await claudeStream.finalMessage()
+        recordUsage(supabase, {
+          userId: user.id,
+          tripId: params.id,
+          endpoint: 'generate',
+          inputTokens:  finalMsg.usage.input_tokens,
+          outputTokens: finalMsg.usage.output_tokens,
+        }).catch(() => { /* non-fatal */ })
 
         send({ type: 'progress', message: 'Parsing itinerary…' })
 

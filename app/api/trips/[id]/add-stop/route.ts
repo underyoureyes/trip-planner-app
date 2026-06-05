@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
+import { recordUsage } from '@/lib/usage'
 import type { TripData, Stop } from '@/lib/types'
 
 export async function POST(
@@ -100,6 +101,10 @@ Return ONLY a valid JSON object for a single Stop, no other text:
     }
 
     const stop = JSON.parse(raw.slice(firstBrace, lastBrace + 1)) as Stop
+    recordUsage(supabase, {
+      userId: user.id, tripId: params.id, endpoint: 'add-stop',
+      inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens,
+    }).catch(() => { /* non-fatal */ })
     return NextResponse.json({ stop })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to generate stop'

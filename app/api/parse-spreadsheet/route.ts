@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
+import { recordUsage } from '@/lib/usage'
 
 const MAX_ROWS = 200
 const MAX_CHARS = 8000
@@ -76,6 +77,10 @@ Only include fields you can confidently extract. Return {} if nothing relevant. 
     if (start === -1 || end === -1) return NextResponse.json({ fields: {} })
 
     const fields = JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>
+    recordUsage(supabase, {
+      userId: user.id, tripId: null, endpoint: 'parse-spreadsheet',
+      inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens,
+    }).catch(() => { /* non-fatal */ })
     return NextResponse.json({ fields, rows: csvContent.split('\n').length - 1 })
   } catch {
     return NextResponse.json({ fields: {} })

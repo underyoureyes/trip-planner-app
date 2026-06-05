@@ -152,6 +152,16 @@ export async function* streamTripGeneration(
   }
 }
 
+export function createTripStream(apiKey: string, form: IntakeForm) {
+  const client = getClaudeClient(apiKey)
+  return client.messages.stream({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 16000,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: buildTripPrompt(form) }],
+  })
+}
+
 export function parseTripJson(raw: string): TripData {
   const cleaned = raw
     .replace(/^```json\s*/i, '')

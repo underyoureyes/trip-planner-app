@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
+import { recordUsage } from '@/lib/usage'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -63,6 +64,10 @@ Today's date is ${new Date().toISOString().split('T')[0]}. Only include fields c
     if (start === -1 || end === -1) return NextResponse.json({ fields: {} })
 
     const fields = JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>
+    recordUsage(supabase, {
+      userId: user.id, tripId: null, endpoint: 'parse-description',
+      inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens,
+    }).catch(() => { /* non-fatal */ })
     return NextResponse.json({ fields })
   } catch {
     return NextResponse.json({ fields: {} })

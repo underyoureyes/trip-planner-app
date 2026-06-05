@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
+import { recordUsage } from '@/lib/usage'
 
 export async function POST(
   request: NextRequest,
@@ -85,6 +86,10 @@ Only include fields you can clearly read. Omit fields that are not visible. Retu
     if (start === -1 || end === -1) return NextResponse.json({ updates: {} })
 
     const updates = JSON.parse(raw.slice(start, end + 1))
+    recordUsage(supabase, {
+      userId: user.id, tripId: params.id, endpoint: 'scan-photo',
+      inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens,
+    }).catch(() => { /* non-fatal */ })
     return NextResponse.json({ updates })
   } catch {
     return NextResponse.json({ updates: {} })

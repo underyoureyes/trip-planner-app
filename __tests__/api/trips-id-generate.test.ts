@@ -3,14 +3,28 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/supabase-server', () => ({ createServerSupabaseClient: vi.fn() }))
 vi.mock('@/lib/claude', () => ({
-  streamTripGeneration: vi.fn(),
+  createTripStream: vi.fn(),
   parseTripJson: vi.fn(),
 }))
+vi.mock('@/lib/usage', () => ({ recordUsage: vi.fn().mockResolvedValue(undefined) }))
 
 import { POST } from '@/app/api/trips/[id]/generate/route'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { streamTripGeneration, parseTripJson } from '@/lib/claude'
+import { createTripStream, parseTripJson } from '@/lib/claude'
 import { makeSupabaseMock, readSSEEvents } from '../helpers/supabase'
+
+function makeStream(textChunks: string[], throwErr?: Error) {
+  const events = throwErr
+    ? (async function*() { throw throwErr })()
+    : (async function*() {
+        for (const text of textChunks) {
+          yield { type: 'content_block_delta', delta: { type: 'text_delta', text } }
+        }
+      })()
+  return Object.assign(events, {
+    finalMessage: () => Promise.resolve({ usage: { input_tokens: 100, output_tokens: 200 } }),
+  })
+}
 
 const PARAMS = { params: { id: 'trip-123' } }
 const OWNER  = { id: 'user-1' }
@@ -64,10 +78,7 @@ describe('POST /api/trips/[id]/generate', () => {
         settingsRow: { claude_api_key: 'sk-test' },
       }) as any
     )
-    async function* fakeStream() {
-      yield '{"days":[{"day_number":1,"stops":[],"date":"2026-06-01","title":"Day 1"}]}'
-    }
-    vi.mocked(streamTripGeneration).mockReturnValue(fakeStream() as any)
+    vi.mocked(createTripStream).mockReturnValue(makeStream(['{"days":[{"day_number":1,"stops":[],"date":"2026-06-01","title":"Day 1"}]}']) as any)
 
     const res = await POST(postReq(), PARAMS)
     expect(res.status).toBe(200)
@@ -85,8 +96,7 @@ describe('POST /api/trips/[id]/generate', () => {
         settingsRow: { claude_api_key: 'sk-test' },
       }) as any
     )
-    async function* fakeStream() { yield 'not valid json' }
-    vi.mocked(streamTripGeneration).mockReturnValue(fakeStream() as any)
+    vi.mocked(createTripStream).mockReturnValue(makeStream(['not valid json']) as any)
     vi.mocked(parseTripJson).mockImplementation(() => { throw new Error('bad json') })
 
     const res = await POST(postReq(), PARAMS)
@@ -103,8 +113,7 @@ describe('POST /api/trips/[id]/generate', () => {
         settingsRow: { claude_api_key: 'sk-test' },
       }) as any
     )
-    async function* failStream() { throw new Error('Claude API down') }
-    vi.mocked(streamTripGeneration).mockReturnValue(failStream() as any)
+    vi.mocked(createTripStream).mockReturnValue(makeStream([], new Error('Claude API down')) as any)
 
     const res = await POST(postReq(), PARAMS)
     const events = await readSSEEvents(res)

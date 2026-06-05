@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import type { UsageSummary } from '@/lib/usage'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState('GBP')
   const [validatingKey, setValidatingKey] = useState(false)
   const [keyError, setKeyError] = useState('')
+  const [usage, setUsage] = useState<UsageSummary | null>(null)
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
@@ -27,6 +29,9 @@ export default function SettingsPage() {
       setCurrency(data.currency || 'GBP')
       setLoading(false)
     })
+    fetch('/api/usage').then(r => r.json()).then(data => {
+      if (data.summary) setUsage(data.summary)
+    }).catch(() => {/* ignore */})
   }, [])
 
   async function save() {
@@ -122,6 +127,50 @@ export default function SettingsPage() {
               <option value="CHF">🇨🇭 CHF</option>
             </select>
           </div>
+        </div>
+
+        {/* ── API Usage ── */}
+        <div className="card space-y-3">
+          <h2 className="font-semibold text-gray-900">Claude API usage</h2>
+          {usage ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-blue-50 px-3 py-3 text-center">
+                  <p className="text-[11px] text-blue-500 font-semibold uppercase tracking-wide">Total cost</p>
+                  <p className="text-[20px] font-bold text-blue-700 mt-0.5">${usage.total_cost_usd.toFixed(4)}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-3 text-center">
+                  <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Input</p>
+                  <p className="text-[15px] font-bold text-gray-700 mt-0.5">{(usage.total_input / 1000).toFixed(1)}k</p>
+                  <p className="text-[10px] text-gray-400">tokens</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-3 text-center">
+                  <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Output</p>
+                  <p className="text-[15px] font-bold text-gray-700 mt-0.5">{(usage.total_output / 1000).toFixed(1)}k</p>
+                  <p className="text-[10px] text-gray-400">tokens</p>
+                </div>
+              </div>
+              {Object.keys(usage.by_endpoint).length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-gray-400">By feature</p>
+                  {Object.entries(usage.by_endpoint)
+                    .sort(([, a], [, b]) => b.cost_usd - a.cost_usd)
+                    .map(([ep, stat]) => (
+                      <div key={ep} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
+                        <div>
+                          <p className="text-[13px] font-medium text-gray-700 capitalize">{ep.replace(/-/g, ' ')}</p>
+                          <p className="text-[11px] text-gray-400">{stat.calls} call{stat.calls !== 1 ? 's' : ''}</p>
+                        </div>
+                        <p className="text-[13px] font-semibold text-gray-700">${stat.cost_usd.toFixed(4)}</p>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <p className="text-[11px] text-gray-400">Prices: $3.00/M input · $15.00/M output (claude-sonnet-4-6)</p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">No usage recorded yet. Usage is tracked from your next API call.</p>
+          )}
         </div>
 
         {message && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700">{message}</div>}
