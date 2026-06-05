@@ -14,9 +14,12 @@ import TripRouteCard from '@/components/trip/TripRouteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-const CONTACT_TYPES: EmergencyContact['type'][] = ['vet', 'hospital', 'pharmacy', 'police', 'breakdown', 'other']
+const CONTACT_TYPES: EmergencyContact['type'][] = ['a_and_e', 'walk_in', 'vet', 'hospital', 'pharmacy', 'police', 'breakdown', 'other']
 const CONTACT_ICON: Record<EmergencyContact['type'], string> = {
-  vet: '🐾', hospital: '🏥', pharmacy: '💊', police: '🚨', breakdown: '🔧', other: '📞',
+  a_and_e: '🏥', walk_in: '🚶', vet: '🐾', hospital: '🏥', pharmacy: '💊', police: '🚨', breakdown: '🔧', other: '📞',
+}
+const CONTACT_LABEL: Record<EmergencyContact['type'], string> = {
+  a_and_e: 'A&E', walk_in: 'Walk-in', vet: 'Vet', hospital: 'Hospital', pharmacy: 'Pharmacy', police: 'Police', breakdown: 'Breakdown', other: 'Other',
 }
 
 function OverviewSection({
@@ -34,15 +37,15 @@ function OverviewSection({
 }) {
   const contacts = emergencyContacts || []
   const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState<{ name: string; type: EmergencyContact['type']; phone: string; notes: string }>({
-    name: '', type: 'vet', phone: '', notes: '',
+  const [draft, setDraft] = useState<{ name: string; type: EmergencyContact['type']; phone: string; location: string; notes: string }>({
+    name: '', type: 'a_and_e', phone: '', location: '', notes: '',
   })
 
   function commitAdd() {
     if (!draft.name.trim()) return
-    const c: EmergencyContact = { name: draft.name.trim(), type: draft.type, phone: draft.phone.trim() || undefined, notes: draft.notes.trim() || undefined }
+    const c: EmergencyContact = { name: draft.name.trim(), type: draft.type, phone: draft.phone.trim() || undefined, location: draft.location.trim() || undefined, notes: draft.notes.trim() || undefined }
     onUpdateContacts([...contacts, c])
-    setDraft({ name: '', type: 'vet', phone: '', notes: '' })
+    setDraft({ name: '', type: 'a_and_e', phone: '', location: '', notes: '' })
     setAdding(false)
   }
 
@@ -77,41 +80,62 @@ function OverviewSection({
             </div>
           )}
 
-          {contacts.map((c, i) => {
-            const icon = CONTACT_ICON[c.type] || '📞'
-            const href = c.phone
-              ? `tel:${c.phone.replace(/\s/g, '')}`
-              : c.address
-                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
-                : undefined
-            const inner = (
-              <>
-                <span className="text-[22px] w-8 text-center flex-shrink-0">{icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
-                  <p className="text-[12px] text-soft capitalize">{c.type}</p>
-                  {c.phone   && <p className="text-[13px] text-sky">{c.phone}</p>}
-                  {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
-                  {c.notes   && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
-                </div>
-                {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
-                {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
-                {isOwner && (
-                  <button
-                    onClick={e => { e.preventDefault(); removeContact(i) }}
-                    className="w-6 h-6 flex items-center justify-center rounded-full text-[14px] active:bg-red-100 flex-shrink-0"
-                    style={{ color: '#ef4444' }}
-                  >×</button>
+          {(() => {
+            // Group by location; contacts with no location go under 'General'
+            const groups: Record<string, { contact: EmergencyContact; idx: number }[]> = {}
+            contacts.forEach((c, idx) => {
+              const key = c.location || 'General'
+              if (!groups[key]) groups[key] = []
+              groups[key].push({ contact: c, idx })
+            })
+            const locationKeys = Object.keys(groups)
+            return locationKeys.map((loc, gi) => (
+              <div key={loc}>
+                {locationKeys.length > 1 && (
+                  <div className="px-4 py-2 bg-gray-50 border-b border-red-100">
+                    <p className="text-[11px] font-bold tracking-[1px] uppercase text-soft">📍 {loc}</p>
+                  </div>
                 )}
-              </>
-            )
-            const cls = `flex items-center gap-3 px-4 py-3.5 no-underline w-full ${i < contacts.length - 1 || adding ? 'border-b border-red-100' : ''}`
-            return href ? (
-              <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
-            ) : (
-              <div key={i} className={cls}>{inner}</div>
-            )
-          })}
+                {groups[loc].map(({ contact: c, idx: i }, li) => {
+                  const icon = CONTACT_ICON[c.type] || '📞'
+                  const label = CONTACT_LABEL[c.type] || c.type
+                  const href = c.phone
+                    ? `tel:${c.phone.replace(/\s/g, '')}`
+                    : c.address
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                      : undefined
+                  const isLast = gi === locationKeys.length - 1 && li === groups[loc].length - 1
+                  const inner = (
+                    <>
+                      <span className="text-[22px] w-8 text-center flex-shrink-0">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
+                        <p className="text-[12px] text-soft">{label}</p>
+                        {c.phone && <p className="text-[13px] text-sky">{c.phone}</p>}
+                        {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                        {c.notes && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
+                      </div>
+                      {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
+                      {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
+                      {isOwner && (
+                        <button
+                          onClick={e => { e.preventDefault(); removeContact(i) }}
+                          className="w-6 h-6 flex items-center justify-center rounded-full text-[14px] active:bg-red-100 flex-shrink-0"
+                          style={{ color: '#ef4444' }}
+                        >×</button>
+                      )}
+                    </>
+                  )
+                  const cls = `flex items-center gap-3 px-4 py-3.5 no-underline w-full ${!isLast || adding ? 'border-b border-red-100' : ''}`
+                  return href ? (
+                    <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
+                  ) : (
+                    <div key={i} className={cls}>{inner}</div>
+                  )
+                })}
+              </div>
+            ))
+          })()}
 
           {/* Add form */}
           {adding && (
@@ -124,7 +148,7 @@ function OverviewSection({
                   style={{ width: 120 }}
                 >
                   {CONTACT_TYPES.map(t => (
-                    <option key={t} value={t}>{CONTACT_ICON[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    <option key={t} value={t}>{CONTACT_ICON[t]} {CONTACT_LABEL[t]}</option>
                   ))}
                 </select>
                 <input
@@ -136,16 +160,25 @@ function OverviewSection({
                   autoFocus
                 />
               </div>
-              <input
-                type="tel"
-                placeholder="Phone number (optional)"
-                value={draft.phone}
-                onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
-                className="input-field bg-white text-[14px]"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  placeholder="Phone (optional)"
+                  value={draft.phone}
+                  onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                />
+                <input
+                  type="text"
+                  placeholder="Town / area"
+                  value={draft.location}
+                  onChange={e => setDraft(d => ({ ...d, location: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                />
+              </div>
               <input
                 type="text"
-                placeholder="Notes e.g. 24hr, nearest to York (optional)"
+                placeholder="Notes e.g. 24hr, open weekends (optional)"
                 value={draft.notes}
                 onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
                 className="input-field bg-white text-[14px]"

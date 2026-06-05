@@ -62,7 +62,21 @@ export default function NewTripPage() {
     budget_per_day_gbp: 150, driving_max_hours: 4,
     preferred_check_in: '15:00', preferred_check_out: '10:00',
     must_include: '', notes: '', pets: '',
+    emergency_prefs: ['a_and_e', 'walk_in', 'pharmacy'],
   })
+
+  const emergencyOptions = [
+    { id: 'a_and_e',   label: '🏥 A&E' },
+    { id: 'walk_in',   label: '🚶 Walk-in' },
+    { id: 'vet',       label: '🐾 Vet' },
+    { id: 'pharmacy',  label: '💊 Pharmacy' },
+    { id: 'breakdown', label: '🔧 Breakdown' },
+  ]
+
+  function toggleEmergencyPref(id: string) {
+    const current = form.emergency_prefs || []
+    setForm(f => ({ ...f, emergency_prefs: current.includes(id) ? current.filter(p => p !== id) : [...current, id] }))
+  }
 
   const interestOptions = [
     { id: 'history',     label: '🏰 History' },
@@ -539,9 +553,36 @@ export default function NewTripPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               🐾 Travelling with pets? <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <input type="text" value={form.pets} onChange={e => setForm(f => ({ ...f, pets: e.target.value }))}
+            <input type="text" value={form.pets} onChange={e => {
+              const val = e.target.value
+              setForm(f => {
+                const prefs = f.emergency_prefs || []
+                return { ...f, pets: val, emergency_prefs: val.trim() && !prefs.includes('vet') ? [...prefs, 'vet'] : prefs }
+              })
+            }}
               className="input-field" placeholder="e.g. 2 dogs" />
-            <p className="text-xs text-gray-400 mt-1">Claude will mark dog-friendly stops and include vet contacts</p>
+            <p className="text-xs text-gray-400 mt-1">Claude will mark dog-friendly stops and add vet contacts for each overnight location</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🆘 Emergency contacts to include <span className="text-gray-400 font-normal">(per overnight location)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {emergencyOptions.map(opt => {
+                const active = (form.emergency_prefs || []).includes(opt.id)
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => toggleEmergencyPref(opt.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      active ? 'bg-red-50 border-red-300 text-red-700' : 'bg-white border-gray-200 text-gray-600'
+                    }`}
+                  >{opt.label}</button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">Police always included. Claude will find the nearest of each type for every stop on the route.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">

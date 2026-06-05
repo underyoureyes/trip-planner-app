@@ -22,7 +22,7 @@ CRITICAL RULES:
 - For each day set "activity_badges" to 1-3 emoji that characterise the day (e.g. ["🏰","🌿"] for a heritage/nature day)
 - Estimate "steps" (integer) and "walking_km" (number) per day based on planned activities
 - Add "sections" for any day that warrants extra categorised notes (dog tips, cycling notes, tide times, etc.)
-- Include "emergency_contacts" at trip level: always add local hospitals and police; add vets if pets are travelling
+- Include "emergency_contacts" at trip level, grouped by overnight location. For EACH overnight town generate the requested contact types (see EMERGENCY_PREFS in the prompt). Always include police. Set the "location" field to the town name so contacts can be grouped in the UI.
 - Set "website_label" on stops to "Book" for accommodation/tours that need reservations, "Reserve" for restaurants, "Website" for general info, or omit for null
 - Set "cost" on eating items to estimated cost per person e.g. "~£15pp", "Free", "€30-40pp"
 - Mark 1-2 days as "highlight": true — the most special or scenic day(s) of the trip (shown in gold in the app)`
@@ -48,7 +48,8 @@ BUDGET: £${form.budget_per_day_gbp}/day per person
 MAX DRIVING: ${form.driving_max_hours}h/day
 PREFERRED CHECK-IN: ${checkIn} (use this time for all hotel check_in fields)
 PREFERRED CHECK-OUT: ${checkOut} (use this time for all hotel check_out fields)
-${form.pets ? `PETS: ${form.pets} — mark dog-friendly stops, include vet emergency contacts` : ''}
+${form.pets ? `PETS: ${form.pets} — mark dog-friendly stops, always include nearest vet for each overnight location` : ''}
+${form.emergency_prefs && form.emergency_prefs.length ? `EMERGENCY_PREFS: For each overnight town include these contact types: ${form.emergency_prefs.join(', ')}. Always add police too.` : 'EMERGENCY_PREFS: For each overnight town include a_and_e (A&E hospital) and police.'}
 ${form.must_include ? `MUST INCLUDE: ${form.must_include}` : ''}
 ${form.notes ? `NOTES: ${form.notes}` : ''}
 
@@ -119,11 +120,12 @@ Output exactly this JSON structure:
   ],
   "emergency_contacts": [
     {
-      "name": "<name of service e.g. Inverness Hospital>",
-      "type": "<vet|hospital|police|pharmacy|breakdown|other>",
-      "phone": "<phone number>",
-      "address": "<address or null>",
-      "notes": "<any relevant note or null>"
+      "name": "<name of service e.g. York A&E, Edinburgh Vet Clinic>",
+      "type": "<vet|hospital|a_and_e|walk_in|police|pharmacy|breakdown|other>",
+      "phone": "<phone number or null>",
+      "address": "<full address>",
+      "location": "<overnight town this contact serves, e.g. 'York', 'Edinburgh'>",
+      "notes": "<opening hours, 24hr status, or other relevant note, or null>"
     }
   ]
 }`
