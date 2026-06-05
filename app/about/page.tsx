@@ -67,8 +67,13 @@ export default function AboutPage({ searchParams }: { searchParams: { next?: str
 
       {/* ── Hero ── */}
       <div className="bg-gradient-to-b from-[#1a1a2e] to-[#1e3a8a] px-6 pt-16 pb-14 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5 text-[12px] font-semibold text-blue-200" style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}>
-          Powered by Claude AI
+        <div className="flex justify-center gap-2 mb-5">
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-blue-200" style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}>
+            Powered by Claude AI
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-amber-200" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.35)' }}>
+            🧪 Beta
+          </span>
         </div>
         <h1 className="font-serif text-4xl font-bold text-white leading-tight mb-3">
           Road trips planned<br />by AI
@@ -146,6 +151,21 @@ export default function AboutPage({ searchParams }: { searchParams: { next?: str
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── Beta note ── */}
+        <section>
+          <div className="rounded-card px-4 py-4 flex gap-3 items-start" style={{ background: '#fef9ec', border: '1px solid #f6d860' }}>
+            <span className="text-[20px] flex-shrink-0">🧪</span>
+            <div>
+              <p className="font-semibold text-[13px] text-amber-800 leading-snug">Beta — bring your own Claude API key</p>
+              <p className="text-[12px] text-amber-700 leading-snug mt-0.5">
+                This app is in beta testing. To generate itineraries you&apos;ll need a free{' '}
+                <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="underline">Anthropic API key</a>
+                {' '}— add it in Settings after signing up. You&apos;re billed directly by Anthropic at their standard rates (a typical trip costs a few cents).
+              </p>
+            </div>
           </div>
         </section>
 
