@@ -33,9 +33,8 @@ function OverviewSection({
           const isHighlight = day.highlight === true
 
           const meta: string[] = []
-          if (driveKm > 0)   meta.push(`~${Math.round(driveKm)} km`)
-          if (stopCount > 1)  meta.push(`${stopCount} stops`)
-          if (stopCount === 1) meta.push('1 stop')
+          if (driveKm > 0)  meta.push(`~${Math.round(driveKm)} km`)
+          if (stopCount > 1) meta.push(`${stopCount} stops`)
           if (meta.length === 0 && day.overnight_location) meta.push(`🌙 ${day.overnight_location}`)
 
           return (
@@ -675,7 +674,9 @@ export default function TripViewPage() {
           )}
           {tripData?.total_days      && <span className="hero-chip">{tripData.total_days} days</span>}
           {tripData?.total_distance_km && <span className="hero-chip">~{tripData.total_distance_km} km</span>}
-          {tripData?.total_stops     && <span className="hero-chip">{tripData.total_stops} stops</span>}
+          {tripData?.emergency_contacts && tripData.emergency_contacts.length > 0 && (
+            <span className="hero-chip">🆘 {tripData.emergency_contacts.length} emergency contact{tripData.emergency_contacts.length !== 1 ? 's' : ''}</span>
+          )}
           {trip.intake_form?.num_travellers && <span className="hero-chip">👥 {trip.intake_form.num_travellers} {trip.intake_form.num_travellers === 1 ? 'traveller' : 'travellers'}</span>}
           {profile?.vehicle_name     && <span className="hero-chip">🚗 {profile.vehicle_name}</span>}
           {trip.intake_form?.pets    && <span className="hero-chip">🐾 {trip.intake_form.pets}</span>}
