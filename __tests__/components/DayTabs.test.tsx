@@ -38,9 +38,10 @@ describe('DayTabs', () => {
     expect(screen.getByText('Day 3').closest('button')).toHaveStyle({ background: '#e8edf5' })
   })
 
-  it('renders empty list without crashing', () => {
+  it('renders empty list without crashing — only Overview tab shown', () => {
     render(<DayTabs days={[]} activeIndex={0} onSelect={vi.fn()} />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByText('Overview')).toBeInTheDocument()
+    expect(screen.queryByText(/Day \d/)).not.toBeInTheDocument()
   })
 
   it('shows Claude-provided activity_badges on tab', () => {
