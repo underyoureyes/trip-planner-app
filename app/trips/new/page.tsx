@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import * as XLSX from 'xlsx'
 import type { IntakeForm } from '@/lib/types'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -41,8 +42,14 @@ export default function NewTripPage() {
   const [scanMsg,    setScanMsg]    = useState('')
   const [scannedFiles, setScannedFiles] = useState<string[]>([])  // thumbnails
 
+  const [importing,     setImporting]     = useState(false)
+  const [importMsg,     setImportMsg]     = useState('')
+  const [sheetPending,  setSheetPending]  = useState<{ csv: string; name: string; rows: number } | null>(null)
+  const [sheetContext,  setSheetContext]  = useState('')
+
   const recognitionRef = useRef<{ stop: () => void } | null>(null)
   const scanFileRef    = useRef<HTMLInputElement>(null)
+  const sheetFileRef   = useRef<HTMLInputElement>(null)
   const descRef        = useRef<HTMLTextAreaElement>(null)
 
   const hasSpeech = typeof window !== 'undefined' &&
@@ -99,6 +106,52 @@ export default function NewTripPage() {
   }
 
   function stopListening() { recognitionRef.current?.stop(); setListening(false) }
+
+  // ── Spreadsheet import ────────────────────────────────────────────────────
+
+  async function handleSpreadsheetFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setImportMsg(''); setError('')
+
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true })
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false })
+      const rows = csv.split('\n').filter(l => l.trim()).length - 1
+      setSheetPending({ csv, name: file.name, rows: Math.max(0, rows) })
+      setSheetContext(tripDescription.trim())
+    } catch {
+      setError('Could not read that file — please try a .xlsx or .csv')
+    }
+  }
+
+  async function handleImportSpreadsheet() {
+    if (!sheetPending || importing) return
+    setImporting(true); setImportMsg(''); setError('')
+    try {
+      const res = await fetch('/api/parse-spreadsheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csv: sheetPending.csv, description: sheetContext.trim() }),
+      })
+      const data = await res.json() as { fields?: Partial<IntakeForm>; rows?: number; error?: string }
+      if (!res.ok || data.error) { setImportMsg(''); setError(data.error || 'Could not analyse spreadsheet'); return }
+      if (data.fields && Object.keys(data.fields).length > 0) {
+        setForm(f => ({ ...f, ...data.fields }))
+        setImportMsg(`✓ Spreadsheet analysed — details pre-filled below. Review and adjust as needed.`)
+      } else {
+        setImportMsg('No trip details found. Try adding a description of what the spreadsheet contains.')
+      }
+      setSheetPending(null)
+    } catch {
+      setImportMsg(''); setError('Network error — please try again')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   // ── Parse description into form fields ─────────────────────────────────────
 
@@ -262,36 +315,41 @@ export default function NewTripPage() {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">or scan bookings</span>
+            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">or import</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          {/* Scan button */}
-          <button
-            type="button"
-            onClick={() => scanFileRef.current?.click()}
-            disabled={scanning}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 border-dashed transition-colors active:bg-gray-50"
-            style={{ borderColor: scanning ? '#2563a8' : '#d1d5db' }}
-          >
-            <span className="text-[22px]">{scanning ? '⏳' : '📷'}</span>
-            <div className="text-left">
-              <p className="text-[14px] font-semibold text-gray-800">
-                {scanning ? 'Scanning…' : 'Scan booking confirmations'}
+          {/* Scan + Spreadsheet buttons side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => scanFileRef.current?.click()}
+              disabled={scanning}
+              className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 border-dashed transition-colors active:bg-gray-50"
+              style={{ borderColor: scanning ? '#2563a8' : '#d1d5db' }}
+            >
+              <span className="text-[22px]">{scanning ? '⏳' : '📷'}</span>
+              <p className="text-[12px] font-semibold text-gray-800 text-center leading-tight">
+                {scanning ? 'Scanning…' : 'Scan bookings'}
               </p>
-              <p className="text-[11px] text-gray-400">
-                {scanning ? 'Extracting dates, destination and details' : 'Hotels, activities, flights — select multiple'}
-              </p>
-            </div>
-          </button>
-          <input
-            ref={scanFileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleScanFiles}
-          />
+              <p className="text-[10px] text-gray-400 text-center leading-tight">Photos of hotel, activity or flight confirmations</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => sheetFileRef.current?.click()}
+              disabled={importing}
+              className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 border-dashed transition-colors active:bg-gray-50"
+              style={{ borderColor: importing ? '#2563a8' : '#d1d5db' }}
+            >
+              <span className="text-[22px]">📊</span>
+              <p className="text-[12px] font-semibold text-gray-800 text-center leading-tight">Import spreadsheet</p>
+              <p className="text-[10px] text-gray-400 text-center leading-tight">.xlsx or .csv from OneDrive or your device</p>
+            </button>
+          </div>
+
+          <input ref={scanFileRef}  type="file" accept="image/*"                                   multiple className="hidden" onChange={handleScanFiles} />
+          <input ref={sheetFileRef} type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" className="hidden" onChange={handleSpreadsheetFile} />
 
           {/* Scanned thumbnails */}
           {scannedFiles.length > 0 && (
@@ -304,6 +362,52 @@ export default function NewTripPage() {
           {scanMsg && (
             <p className="text-[13px] font-medium" style={{ color: scanMsg.startsWith('✓') ? '#2d6a4f' : '#374151' }}>
               {scanMsg}
+            </p>
+          )}
+
+          {/* Spreadsheet pending — context prompt */}
+          {sheetPending && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[20px]">📊</span>
+                <div>
+                  <p className="text-[13px] font-semibold text-gray-800">{sheetPending.name}</p>
+                  <p className="text-[11px] text-gray-500">{sheetPending.rows} row{sheetPending.rows !== 1 ? 's' : ''} found</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSheetPending(null)}
+                  className="ml-auto w-7 h-7 rounded-full bg-white flex items-center justify-center text-gray-400 active:bg-gray-100 text-sm"
+                >×</button>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1.5">
+                  What does this spreadsheet contain?
+                </label>
+                <textarea
+                  value={sheetContext}
+                  onChange={e => setSheetContext(e.target.value)}
+                  placeholder={'e.g. "Hotel and activity bookings for a road trip around the Scottish Highlands in August"'}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[13px] text-gray-800 leading-snug focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none bg-white"
+                  rows={2}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleImportSpreadsheet}
+                disabled={importing}
+                className="w-full py-2.5 rounded-lg font-semibold text-[14px] transition-opacity"
+                style={{ background: '#2563a8', color: '#fff', opacity: importing ? 0.6 : 1 }}
+              >
+                {importing
+                  ? <span className="flex items-center justify-center gap-2"><span className="animate-spin inline-block">⏳</span> Analysing…</span>
+                  : '✨ Analyse with Claude'}
+              </button>
+            </div>
+          )}
+          {importMsg && (
+            <p className="text-[13px] font-medium" style={{ color: importMsg.startsWith('✓') ? '#2d6a4f' : '#374151' }}>
+              {importMsg}
             </p>
           )}
         </div>
