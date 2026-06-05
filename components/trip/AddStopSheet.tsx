@@ -21,14 +21,37 @@ const SUGGESTIONS = [
   { label: '🍽 Lunch spot',  command: 'Find a good place for lunch' },
 ]
 
+function compressImage(file: File): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX_W = 1200
+        const scale = Math.min(1, MAX_W / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClose, onAdd }: Props) {
   const [command,   setCommand]   = useState('')
   const [listening, setListening] = useState(false)
   const [loading,   setLoading]   = useState(false)
+  const [scanning,  setScanning]  = useState(false)
   const [preview,   setPreview]   = useState<Stop | null>(null)
   const [error,     setError]     = useState('')
   const [visible,   setVisible]   = useState(false)
+
   const textRef        = useRef<HTMLTextAreaElement>(null)
+  const scanFileRef    = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<{ stop: () => void } | null>(null)
 
   // Animate in
@@ -42,7 +65,7 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
     if (!isOpen) {
       const t = setTimeout(() => {
         setCommand(''); setPreview(null); setError('')
-        setLoading(false); setListening(false)
+        setLoading(false); setListening(false); setScanning(false)
       }, 300)
       return () => clearTimeout(t)
     }
@@ -93,6 +116,45 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
     }
   }
 
+  async function handleScanFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setScanning(true); setError(''); setPreview(null); setCommand('')
+
+    try {
+      const dataUrl = await compressImage(file)
+      const res = await fetch(`/api/trips/${tripId}/scan-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: dataUrl, stopType: 'hotel' }),
+      })
+      const { updates } = await res.json() as { updates: Record<string, string> }
+
+      if (!updates || !updates.name) {
+        setError('Could not read booking details — try a clearer photo')
+        return
+      }
+
+      const stop: Stop = {
+        name: updates.name,
+        type: updates.check_in ? 'hotel' : 'other',
+        ...(updates.address     && { address:     updates.address }),
+        ...(updates.phone       && { phone:       updates.phone }),
+        ...(updates.check_in    && { check_in:    updates.check_in }),
+        ...(updates.check_out   && { check_out:   updates.check_out }),
+        ...(updates.booking_ref && { booking_ref: updates.booking_ref }),
+        ...(updates.website     && { website:     updates.website }),
+        ...(updates.notes       && { notes:       updates.notes }),
+      }
+      setPreview(stop)
+    } catch {
+      setError('Scan failed — please try again')
+    } finally {
+      setScanning(false)
+    }
+  }
+
   function handleConfirm() {
     if (!preview) return
     onAdd(preview)
@@ -137,6 +199,38 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
               <p className="text-[12px] text-soft">Day {dayIndex + 1}{dayTitle ? ` · ${dayTitle}` : ''}</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full bg-mist text-soft flex items-center justify-center text-lg leading-none active:bg-line">×</button>
+          </div>
+
+          {/* Scan booking button */}
+          <button
+            onClick={() => scanFileRef.current?.click()}
+            disabled={scanning || loading}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-card border-2 border-dashed mb-3 transition-colors active:bg-mist"
+            style={{ borderColor: scanning ? '#2563a8' : '#d1d9e6' }}
+          >
+            <span className="text-[22px]">{scanning ? '⏳' : '📷'}</span>
+            <div className="text-left">
+              <p className="text-[14px] font-semibold text-ink">
+                {scanning ? 'Reading booking…' : 'Scan a booking confirmation'}
+              </p>
+              <p className="text-[11px] text-soft">
+                {scanning ? 'Claude is extracting the details' : 'Photo or screenshot of hotel, activity etc.'}
+              </p>
+            </div>
+          </button>
+          <input
+            ref={scanFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleScanFile}
+          />
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-line" />
+            <span className="text-[11px] text-soft font-medium uppercase tracking-wider">or describe it</span>
+            <div className="flex-1 h-px bg-line" />
           </div>
 
           {/* Text input + mic */}
@@ -212,6 +306,12 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
                 )}
                 {preview.address && (
                   <p className="text-[12px] text-soft mb-1">📍 {preview.address}</p>
+                )}
+                {preview.check_in && (
+                  <p className="text-[12px] text-soft mb-1">🛏️ Check-in {preview.check_in} · Out {preview.check_out}</p>
+                )}
+                {preview.booking_ref && (
+                  <p className="text-[12px] font-mono text-ink mb-1">🎟️ {preview.booking_ref}</p>
                 )}
                 {preview.duration_mins && (
                   <p className="text-[12px] text-soft mb-2">⏱ {durLabel(preview.duration_mins)}</p>
