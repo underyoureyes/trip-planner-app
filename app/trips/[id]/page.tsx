@@ -28,12 +28,16 @@ function OverviewSection({
   isOwner,
   onSelectDay,
   onUpdateContacts,
+  onGenerate,
+  generatingContacts,
 }: {
   days: Day[]
   emergencyContacts?: EmergencyContact[]
   isOwner: boolean
   onSelectDay: (i: number) => void
   onUpdateContacts: (contacts: EmergencyContact[]) => void
+  onGenerate?: () => void
+  generatingContacts?: boolean
 }) {
   const contacts = emergencyContacts || []
   const [adding, setAdding] = useState(false)
@@ -61,12 +65,24 @@ function OverviewSection({
         <div className="flex items-center justify-between mb-3">
           <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft">Emergency &amp; Useful Contacts</p>
           {isOwner && !adding && (
-            <button
-              onClick={() => setAdding(true)}
-              className="flex items-center gap-1 text-[12px] font-semibold text-sky active:opacity-70"
-            >
-              <span className="text-[18px] leading-none font-bold">+</span> Add
-            </button>
+            <div className="flex items-center gap-2">
+              {onGenerate && (
+                <button
+                  onClick={onGenerate}
+                  disabled={generatingContacts}
+                  className="text-[12px] font-semibold active:opacity-70 disabled:opacity-40"
+                  style={{ color: '#c9963a' }}
+                >
+                  {generatingContacts ? '✨ …' : '✨ Generate'}
+                </button>
+              )}
+              <button
+                onClick={() => setAdding(true)}
+                className="flex items-center gap-1 text-[12px] font-semibold text-sky active:opacity-70"
+              >
+                <span className="text-[18px] leading-none font-bold">+</span> Add
+              </button>
+            </div>
           )}
         </div>
 
@@ -74,8 +90,11 @@ function OverviewSection({
           {contacts.length === 0 && !adding && (
             <div className="px-4 py-5 text-center">
               <p className="text-[13px] text-soft">No emergency contacts yet</p>
-              {isOwner && (
-                <p className="text-[12px] text-soft mt-1">Tap <strong className="text-ink">+ Add</strong> to add a vet, hospital, pharmacy or breakdown number</p>
+              {isOwner && !generatingContacts && (
+                <p className="text-[12px] text-soft mt-1">Tap <strong className="text-ink">✨ Generate</strong> to auto-fill from Claude, or <strong className="text-ink">+ Add</strong> manually</p>
+              )}
+              {isOwner && generatingContacts && (
+                <p className="text-[12px] text-soft mt-1 animate-pulse">✨ Claude is finding contacts for your overnight stops…</p>
               )}
             </div>
           )}
@@ -482,9 +501,10 @@ export default function TripViewPage() {
   const [showRouteCard,    setShowRouteCard]    = useState(false)
   const [showShareSheet,   setShowShareSheet]   = useState(false)
   const [shareLink,        setShareLink]        = useState('')
-  const [copyDone,         setCopyDone]         = useState(false)
-  const [deletedHistory,   setDeletedHistory]   = useState<DeletedEntry[]>([])
-  const [lastDeleted,      setLastDeleted]       = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const [copyDone,           setCopyDone]           = useState(false)
+  const [deletedHistory,     setDeletedHistory]     = useState<DeletedEntry[]>([])
+  const [lastDeleted,        setLastDeleted]         = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const [generatingContacts, setGeneratingContacts] = useState(false)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
 
@@ -649,6 +669,19 @@ export default function TripViewPage() {
     setTripData(updated)
     await saveData(updated)
   }, [tripData, saveData])
+
+  async function handleGenerateContacts() {
+    setGeneratingContacts(true)
+    try {
+      const res = await fetch(`/api/trips/${id}/generate-contacts`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setTripData(t => t ? { ...t, emergency_contacts: data.contacts } : t)
+      }
+    } finally {
+      setGeneratingContacts(false)
+    }
+  }
 
   const handleRestore = useCallback(async (entry: DeletedEntry) => {
     if (!tripData) return
@@ -841,6 +874,8 @@ export default function TripViewPage() {
           isOwner={isOwner}
           onSelectDay={setActiveDay}
           onUpdateContacts={handleUpdateContacts}
+          onGenerate={isOwner ? handleGenerateContacts : undefined}
+          generatingContacts={generatingContacts}
         />
       )}
       {activeDay === -1 && days.length === 0 && (
@@ -995,53 +1030,59 @@ export default function TripViewPage() {
             onDeleteEating={(eatIndex) => handleDeleteEating(activeDay, eatIndex)}
           />
 
-          {/* Emergency / SOS contacts */}
-          {tripData?.emergency_contacts && tripData.emergency_contacts.length > 0 && (
-            <div className="rounded-card mb-3.5 overflow-hidden border border-red-200">
-              <button
-                onClick={() => setSosOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
-              >
-                <span className="text-[13px] font-semibold text-red-700">🆘 Emergency &amp; SOS contacts</span>
-                <span className={`text-line text-[10px] transition-transform ${sosOpen ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-              {sosOpen && (
-                <div>
-                  {tripData.emergency_contacts.map((c, i) => {
-                    const href = c.phone
-                      ? `tel:${c.phone}`
-                      : c.address
-                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
-                        : undefined
-                    const typeIcon = c.type === 'vet' ? '🐾' : c.type === 'hospital' ? '🏥' : c.type === 'police' ? '🚨' : c.type === 'breakdown' ? '🔧' : '📞'
-                    return href ? (
-                      <a
-                        key={i}
-                        href={href}
-                        className="flex items-center gap-3 px-4 py-3 bg-white no-underline border-b border-red-100 last:border-none active:bg-red-50"
-                      >
-                        <span className="text-[20px] w-7 text-center flex-shrink-0">{typeIcon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[14px] text-ink">{c.name}</p>
-                          <p className="text-[13px] text-sky">{c.phone || (c.address ? 'Tap for map →' : '')}</p>
-                          {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
-                        </div>
-                      </a>
-                    ) : (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3 bg-white border-b border-red-100 last:border-none">
-                        <span className="text-[20px] w-7 text-center flex-shrink-0">{typeIcon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[14px] text-ink">{c.name}</p>
-                          <p className="text-[11px] text-soft uppercase tracking-wide">{c.type}</p>
-                          {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Day emergency contacts — filtered to this overnight location */}
+          {(() => {
+            const loc = currentDay.overnight_location || ''
+            const allContacts = tripData?.emergency_contacts || []
+            const dayContacts = allContacts.filter(c =>
+              !c.location || c.location.toLowerCase() === loc.toLowerCase()
+            )
+            if (dayContacts.length === 0) return null
+            return (
+              <div className="rounded-card mb-3.5 overflow-hidden border border-red-200">
+                <button
+                  onClick={() => setSosOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
+                >
+                  <span className="text-[13px] font-semibold text-red-700">🆘 Emergency contacts{loc ? ` — ${loc}` : ''}</span>
+                  <span className={`text-line text-[10px] transition-transform ${sosOpen ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                {sosOpen && (
+                  <div>
+                    {dayContacts.map((c, i) => {
+                      const href = c.phone
+                        ? `tel:${c.phone.replace(/\s/g, '')}`
+                        : c.address
+                          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                          : undefined
+                      const icon = CONTACT_ICON[c.type] || '📞'
+                      const label = CONTACT_LABEL[c.type] || c.type
+                      const inner = (
+                        <>
+                          <span className="text-[20px] w-7 text-center flex-shrink-0">{icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-[14px] text-ink">{c.name}</p>
+                            <p className="text-[12px] text-soft">{label}</p>
+                            {c.phone && <p className="text-[13px] text-sky">{c.phone}</p>}
+                            {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                            {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
+                          </div>
+                          {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
+                          {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
+                        </>
+                      )
+                      const baseCls = 'flex items-center gap-3 px-4 py-3 bg-white border-b border-red-100 last:border-none'
+                      return href ? (
+                        <a key={i} href={href} className={`${baseCls} no-underline active:bg-red-50`}>{inner}</a>
+                      ) : (
+                        <div key={i} className={baseCls}>{inner}</div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Prev / Next */}
           <div className="flex gap-3 pt-2">
