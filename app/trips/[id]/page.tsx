@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import type { Trip, TripData, Day, Eating, DaySection, Stop } from '@/lib/types'
+import type { Trip, TripData, Day, Eating, DaySection, Stop, EmergencyContact } from '@/lib/types'
 import { buildRouteDayUrl } from '@/lib/navigation'
+import { getAccommodationEntries } from '@/lib/trip-stops'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
 import AddStopSheet from '@/components/trip/AddStopSheet'
@@ -13,15 +14,215 @@ import TripRouteCard from '@/components/trip/TripRouteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: number) => void }) {
+const CONTACT_TYPES: EmergencyContact['type'][] = ['a_and_e', 'walk_in', 'vet', 'hospital', 'pharmacy', 'police', 'breakdown', 'other']
+const CONTACT_ICON: Record<EmergencyContact['type'], string> = {
+  a_and_e: '🏥', walk_in: '🚶', vet: '🐾', hospital: '🏥', pharmacy: '💊', police: '🚨', breakdown: '🔧', other: '📞',
+}
+const CONTACT_LABEL: Record<EmergencyContact['type'], string> = {
+  a_and_e: 'A&E', walk_in: 'Walk-in', vet: 'Vet', hospital: 'Hospital', pharmacy: 'Pharmacy', police: 'Police', breakdown: 'Breakdown', other: 'Other',
+}
+
+function OverviewSection({
+  days,
+  emergencyContacts,
+  isOwner,
+  onSelectDay,
+  onUpdateContacts,
+  onGenerate,
+  generatingContacts,
+}: {
+  days: Day[]
+  emergencyContacts?: EmergencyContact[]
+  isOwner: boolean
+  onSelectDay: (i: number) => void
+  onUpdateContacts: (contacts: EmergencyContact[]) => void
+  onGenerate?: () => void
+  generatingContacts?: boolean
+}) {
+  const contacts = emergencyContacts || []
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState<{ name: string; type: EmergencyContact['type']; phone: string; location: string; notes: string }>({
+    name: '', type: 'a_and_e', phone: '', location: '', notes: '',
+  })
+
+  function commitAdd() {
+    if (!draft.name.trim()) return
+    const c: EmergencyContact = { name: draft.name.trim(), type: draft.type, phone: draft.phone.trim() || undefined, location: draft.location.trim() || undefined, notes: draft.notes.trim() || undefined }
+    onUpdateContacts([...contacts, c])
+    setDraft({ name: '', type: 'a_and_e', phone: '', location: '', notes: '' })
+    setAdding(false)
+  }
+
+  function removeContact(idx: number) {
+    onUpdateContacts(contacts.filter((_, i) => i !== idx))
+  }
+
   return (
     <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
+
+      {/* ── Emergency & useful contacts ── */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft">Emergency &amp; Useful Contacts</p>
+          {isOwner && !adding && (
+            <div className="flex items-center gap-2">
+              {onGenerate && (
+                <button
+                  onClick={onGenerate}
+                  disabled={generatingContacts}
+                  className="text-[12px] font-semibold active:opacity-70 disabled:opacity-40"
+                  style={{ color: '#c9963a' }}
+                >
+                  {generatingContacts ? '✨ …' : '✨ Generate'}
+                </button>
+              )}
+              <button
+                onClick={() => setAdding(true)}
+                className="flex items-center gap-1 text-[12px] font-semibold text-sky active:opacity-70"
+              >
+                <span className="text-[18px] leading-none font-bold">+</span> Add
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-card overflow-hidden" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)', border: '1px solid rgba(220,38,38,0.12)' }}>
+          {contacts.length === 0 && !adding && (
+            <div className="px-4 py-5 text-center">
+              <p className="text-[13px] text-soft">No emergency contacts yet</p>
+              {isOwner && !generatingContacts && (
+                <p className="text-[12px] text-soft mt-1">Tap <strong className="text-ink">✨ Generate</strong> to auto-fill from Claude, or <strong className="text-ink">+ Add</strong> manually</p>
+              )}
+              {isOwner && generatingContacts && (
+                <p className="text-[12px] text-soft mt-1 animate-pulse">✨ Claude is finding contacts for your overnight stops…</p>
+              )}
+            </div>
+          )}
+
+          {(() => {
+            // Group by location; contacts with no location go under 'General'
+            const groups: Record<string, { contact: EmergencyContact; idx: number }[]> = {}
+            contacts.forEach((c, idx) => {
+              const key = c.location || 'General'
+              if (!groups[key]) groups[key] = []
+              groups[key].push({ contact: c, idx })
+            })
+            const locationKeys = Object.keys(groups)
+            return locationKeys.map((loc, gi) => (
+              <div key={loc}>
+                {locationKeys.length > 1 && (
+                  <div className="px-4 py-2 bg-gray-50 border-b border-red-100">
+                    <p className="text-[11px] font-bold tracking-[1px] uppercase text-soft">📍 {loc}</p>
+                  </div>
+                )}
+                {groups[loc].map(({ contact: c, idx: i }, li) => {
+                  const icon = CONTACT_ICON[c.type] || '📞'
+                  const label = CONTACT_LABEL[c.type] || c.type
+                  const href = c.phone
+                    ? `tel:${c.phone.replace(/\s/g, '')}`
+                    : c.address
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                      : undefined
+                  const isLast = gi === locationKeys.length - 1 && li === groups[loc].length - 1
+                  const inner = (
+                    <>
+                      <span className="text-[22px] w-8 text-center flex-shrink-0">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
+                        <p className="text-[12px] text-soft">{label}</p>
+                        {c.phone && <p className="text-[13px] text-sky">{c.phone}</p>}
+                        {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                        {c.notes && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
+                      </div>
+                      {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
+                      {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
+                      {isOwner && (
+                        <button
+                          onClick={e => { e.preventDefault(); removeContact(i) }}
+                          className="w-6 h-6 flex items-center justify-center rounded-full text-[14px] active:bg-red-100 flex-shrink-0"
+                          style={{ color: '#ef4444' }}
+                        >×</button>
+                      )}
+                    </>
+                  )
+                  const cls = `flex items-center gap-3 px-4 py-3.5 no-underline w-full ${!isLast || adding ? 'border-b border-red-100' : ''}`
+                  return href ? (
+                    <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
+                  ) : (
+                    <div key={i} className={cls}>{inner}</div>
+                  )
+                })}
+              </div>
+            ))
+          })()}
+
+          {/* Add form */}
+          {adding && (
+            <div className="px-4 py-4 space-y-3 bg-red-50">
+              <div className="flex gap-2">
+                <select
+                  value={draft.type}
+                  onChange={e => setDraft(d => ({ ...d, type: e.target.value as EmergencyContact['type'] }))}
+                  className="input-field bg-white text-[14px] flex-shrink-0"
+                  style={{ width: 120 }}
+                >
+                  {CONTACT_TYPES.map(t => (
+                    <option key={t} value={t}>{CONTACT_ICON[t]} {CONTACT_LABEL[t]}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Name / place"
+                  value={draft.name}
+                  onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  placeholder="Phone (optional)"
+                  value={draft.phone}
+                  onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                />
+                <input
+                  type="text"
+                  placeholder="Town / area"
+                  value={draft.location}
+                  onChange={e => setDraft(d => ({ ...d, location: e.target.value }))}
+                  className="input-field bg-white text-[14px] flex-1"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Notes e.g. 24hr, open weekends (optional)"
+                value={draft.notes}
+                onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
+                className="input-field bg-white text-[14px]"
+              />
+              <div className="flex gap-2 pt-1">
+                <button onClick={commitAdd} disabled={!draft.name.trim()} className="btn-primary flex-1 disabled:opacity-40">Save</button>
+                <button onClick={() => setAdding(false)} className="btn-secondary flex-1">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Your Itinerary</p>
       <div className="space-y-2">
         {days.map((day, i) => {
           const driveKm   = day.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0)
           const stopCount = day.stops.filter(s => s.type !== 'drive').length
           const isHighlight = day.highlight === true
+
+          const meta: string[] = []
+          if (driveKm > 0)  meta.push(`~${Math.round(driveKm)} km`)
+          if (stopCount > 1) meta.push(`${stopCount} stops`)
+          if (meta.length === 0 && day.overnight_location) meta.push(`🌙 ${day.overnight_location}`)
+
           return (
             <button
               key={i}
@@ -43,11 +244,133 @@ function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: 
                   </p>
                 )}
                 <p className="text-[14px] font-semibold text-ink leading-snug truncate">{day.title || `Day ${day.day_number}`}</p>
-                <p className="text-[12px] text-soft">
-                  {[driveKm > 0 && `~${Math.round(driveKm)} km`, stopCount > 0 && `${stopCount} stops`].filter(Boolean).join(' · ')}
-                </p>
+                {day.overnight_location && stopCount > 0 && (
+                  <p className="text-[12px] text-soft truncate">🌙 {day.overnight_location}</p>
+                )}
+                {meta.length > 0 && (
+                  <p className="text-[12px] text-soft">{meta.join(' · ')}</p>
+                )}
               </div>
               <span className="flex-shrink-0 text-[18px]" style={{ color: '#d1d9e6' }}>›</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: number) => void }) {
+  const entries = getAccommodationEntries({ days })
+
+  if (entries.length === 0) {
+    return (
+      <div className="px-4 pt-12 text-center text-soft">
+        <p className="text-3xl mb-3">🛏️</p>
+        <p>No accommodation stops found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
+      <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">
+        {entries.length} {entries.length === 1 ? 'stay' : 'stays'}
+      </p>
+      <div className="space-y-3">
+        {entries.map(({ day, dayIdx, stop }, i) => {
+          const dateStr = day.date
+            ? new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+            : null
+
+          return (
+            <button
+              key={i}
+              onClick={() => onSelectDay(dayIdx)}
+              className="w-full text-left bg-white rounded-card overflow-hidden"
+              style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}
+            >
+              {/* Header bar */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
+                <div
+                  className="flex-shrink-0 flex flex-col items-center justify-center rounded-lg"
+                  style={{ width: 44, height: 44, minWidth: 44, background: '#2d6a4f' }}
+                >
+                  <span className="text-white text-[18px] leading-none">🛏️</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold text-ink leading-snug truncate">{stop.name}</p>
+                  {(dateStr || day.overnight_location) && (
+                    <p className="text-[12px] text-soft truncate">
+                      {[dateStr, day.overnight_location].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+                <span className="text-[11px] font-semibold text-blue-600 flex-shrink-0">Day {day.day_number} ›</span>
+              </div>
+
+              {/* Details */}
+              <div className="px-4 py-3 space-y-1.5">
+                {stop.check_in && stop.check_out && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft w-20 flex-shrink-0">Check-in</span>
+                    <span className="font-semibold text-ink">{stop.check_in}</span>
+                    <span className="text-soft mx-1">→</span>
+                    <span className="text-soft w-20 flex-shrink-0">Check-out</span>
+                    <span className="font-semibold text-ink">{stop.check_out}</span>
+                  </div>
+                )}
+                {stop.address && (
+                  <div className="flex items-start gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Address</span>
+                    <span className="text-ink leading-snug">{stop.address}</span>
+                  </div>
+                )}
+                {stop.booking_ref && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Ref</span>
+                    <span className="font-mono font-semibold text-ink tracking-wide">{stop.booking_ref}</span>
+                  </div>
+                )}
+                {stop.phone && (
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="text-soft flex-shrink-0 w-20">Phone</span>
+                    <a href={`tel:${stop.phone}`} className="text-blue-600 font-semibold" onClick={e => e.stopPropagation()}>
+                      {stop.phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Action links */}
+              {(stop.website || stop.address) && (
+                <div className="px-4 pb-3 flex gap-2">
+                  {stop.website && (
+                    <a
+                      href={stop.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="flex-1 text-center py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: '#dbeafe', color: '#2563a8' }}
+                    >
+                      {stop.website_label || 'Website'}
+                    </a>
+                  )}
+                  {stop.address && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}&travelmode=driving`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="flex-1 text-center py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: '#dcfce7', color: '#2d6a4f' }}
+                    >
+                      Directions
+                    </a>
+                  )}
+                </div>
+              )}
             </button>
           )
         })}
@@ -159,7 +482,8 @@ const HERO_TEXTURE  = `url("data:image/svg+xml,%3Csvg width='60' height='60' vie
 
 export default function TripViewPage() {
   const { id } = useParams<{ id: string }>()
-  const router  = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
   const [trip,       setTrip]       = useState<Trip | null>(null)
   const [tripData,   setTripData]   = useState<TripData | null>(null)
@@ -177,15 +501,20 @@ export default function TripViewPage() {
   const [showRouteCard,    setShowRouteCard]    = useState(false)
   const [showShareSheet,   setShowShareSheet]   = useState(false)
   const [shareLink,        setShareLink]        = useState('')
-  const [copyDone,         setCopyDone]         = useState(false)
-  const [deletedHistory,   setDeletedHistory]   = useState<DeletedEntry[]>([])
-  const [lastDeleted,      setLastDeleted]       = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const [copyDone,           setCopyDone]           = useState(false)
+  const [deletedHistory,     setDeletedHistory]     = useState<DeletedEntry[]>([])
+  const [lastDeleted,        setLastDeleted]         = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
+  const [generatingContacts, setGeneratingContacts] = useState(false)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
 
   async function loadTrip() {
     const res = await fetch(`/api/trips/${id}`)
-    if (!res.ok) { if (res.status === 404) router.push('/trips'); return null }
+    if (!res.ok) {
+      setLoading(false)
+      if (res.status === 404 || res.status === 403) router.push('/trips')
+      return null
+    }
     const data = await res.json()
     setTrip(data.trip)
     setTripData(data.tripData)
@@ -197,11 +526,24 @@ export default function TripViewPage() {
     if (todayIdx >= 0) setActiveDay(todayIdx)
     // else stays at -1 (overview)
 
+    // /api/me only works when logged in — guests viewing a shared trip will get 401, that's fine
     const meRes = await fetch('/api/me')
+    const fromAbout = searchParams.get('from_about') === '1'
     if (meRes.ok) {
       const me = await meRes.json()
-      setIsOwner(me.id === data.trip.owner_id)
+      const owner = me.id === data.trip.owner_id
+      setIsOwner(owner)
+      if (!owner && !fromAbout) {
+        router.replace(`/about?next=${encodeURIComponent(`/trips/${id}`)}`)
+        return null
+      }
       if (me.profile) setProfile(me.profile)
+    } else {
+      // Guest (not logged in) viewing a shared trip
+      if (!fromAbout) {
+        router.replace(`/about?next=${encodeURIComponent(`/trips/${id}`)}`)
+        return null
+      }
     }
     return data.trip
   }
@@ -321,6 +663,26 @@ export default function TripViewPage() {
     await saveData(updated)
   }, [tripData, saveData])
 
+  const handleUpdateContacts = useCallback(async (contacts: EmergencyContact[]) => {
+    if (!tripData) return
+    const updated: TripData = { ...tripData, emergency_contacts: contacts }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
+  async function handleGenerateContacts() {
+    setGeneratingContacts(true)
+    try {
+      const res = await fetch(`/api/trips/${id}/generate-contacts`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setTripData(t => t ? { ...t, emergency_contacts: data.contacts } : t)
+      }
+    } finally {
+      setGeneratingContacts(false)
+    }
+  }
+
   const handleRestore = useCallback(async (entry: DeletedEntry) => {
     if (!tripData) return
     const { stop, dayIdx, stopIdx } = entry
@@ -350,7 +712,6 @@ export default function TripViewPage() {
     setDeletedHistory([])
     try { localStorage.removeItem(`trip-deleted-${id}`) } catch { /* ignore */ }
   }, [id])
-
 
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/trips/${id}`
@@ -455,7 +816,7 @@ export default function TripViewPage() {
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden text-center" style={{ background: `${HERO_TEXTURE}, ${HERO_GRADIENT}`, paddingTop: 52 }}>
         <div className="flex items-center justify-between px-5 mb-4">
-          <Link href="/trips" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:bg-white/20">
+          <Link href={isOwner ? "/trips" : "/about"} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:bg-white/20">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </Link>
           {isOwner && (
@@ -479,7 +840,9 @@ export default function TripViewPage() {
           )}
           {tripData?.total_days      && <span className="hero-chip">{tripData.total_days} days</span>}
           {tripData?.total_distance_km && <span className="hero-chip">~{tripData.total_distance_km} km</span>}
-          {tripData?.total_stops     && <span className="hero-chip">{tripData.total_stops} stops</span>}
+          {tripData?.emergency_contacts && tripData.emergency_contacts.length > 0 && (
+            <span className="hero-chip">🆘 {tripData.emergency_contacts.length} emergency contact{tripData.emergency_contacts.length !== 1 ? 's' : ''}</span>
+          )}
           {trip.intake_form?.num_travellers && <span className="hero-chip">👥 {trip.intake_form.num_travellers} {trip.intake_form.num_travellers === 1 ? 'traveller' : 'travellers'}</span>}
           {profile?.vehicle_name     && <span className="hero-chip">🚗 {profile.vehicle_name}</span>}
           {trip.intake_form?.pets    && <span className="hero-chip">🐾 {trip.intake_form.pets}</span>}
@@ -489,6 +852,9 @@ export default function TripViewPage() {
           )}
           {isOwner && (
             <button onClick={handleShare} className="hero-chip active:bg-white/20 cursor-pointer">🔗 Share trip</button>
+          )}
+          {!isOwner && (
+            <Link href="/about" className="hero-chip active:bg-white/20 cursor-pointer">ℹ️ About this app</Link>
           )}
         </div>
       </div>
@@ -502,10 +868,23 @@ export default function TripViewPage() {
 
       {/* ── Overview ─────────────────────────────────────────────────────────── */}
       {activeDay === -1 && days.length > 0 && (
-        <OverviewSection days={days} onSelectDay={setActiveDay} />
+        <OverviewSection
+          days={days}
+          emergencyContacts={tripData?.emergency_contacts}
+          isOwner={isOwner}
+          onSelectDay={setActiveDay}
+          onUpdateContacts={handleUpdateContacts}
+          onGenerate={isOwner ? handleGenerateContacts : undefined}
+          generatingContacts={generatingContacts}
+        />
       )}
       {activeDay === -1 && days.length === 0 && (
         <div className="px-4 pt-12 text-center text-soft"><p>No days planned yet</p></div>
+      )}
+
+      {/* ── Accommodation ────────────────────────────────────────────────────── */}
+      {activeDay === -2 && (
+        <AccommodationSection days={days} onSelectDay={setActiveDay} />
       )}
 
       {/* ── Day content ──────────────────────────────────────────────────────── */}
@@ -582,6 +961,16 @@ export default function TripViewPage() {
           )}
 
           {/* Stops */}
+          {isOwner && currentDay.stops.length === 0 && (
+            <div className="bg-white rounded-card mb-3.5 flex flex-col items-center gap-3 py-8 px-4 text-center" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
+              <p className="text-[13px] text-soft">No stops on this day yet</p>
+              <button
+                onClick={() => setAddSheetOpen(true)}
+                className="btn-primary"
+                style={{ width: 'auto', paddingLeft: 28, paddingRight: 28 }}
+              >+ Add a stop</button>
+            </div>
+          )}
           {currentDay.stops.length > 0 && (
             <div className="bg-white rounded-card mb-3.5" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
               <div className="bg-card-bg border-b border-line px-4 py-2.5 flex items-center justify-between">
@@ -641,53 +1030,59 @@ export default function TripViewPage() {
             onDeleteEating={(eatIndex) => handleDeleteEating(activeDay, eatIndex)}
           />
 
-          {/* Emergency / SOS contacts */}
-          {tripData?.emergency_contacts && tripData.emergency_contacts.length > 0 && (
-            <div className="rounded-card mb-3.5 overflow-hidden border border-red-200">
-              <button
-                onClick={() => setSosOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
-              >
-                <span className="text-[13px] font-semibold text-red-700">🆘 Emergency &amp; SOS contacts</span>
-                <span className={`text-line text-[10px] transition-transform ${sosOpen ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-              {sosOpen && (
-                <div>
-                  {tripData.emergency_contacts.map((c, i) => {
-                    const href = c.phone
-                      ? `tel:${c.phone}`
-                      : c.address
-                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
-                        : undefined
-                    const typeIcon = c.type === 'vet' ? '🐾' : c.type === 'hospital' ? '🏥' : c.type === 'police' ? '🚨' : c.type === 'breakdown' ? '🔧' : '📞'
-                    return href ? (
-                      <a
-                        key={i}
-                        href={href}
-                        className="flex items-center gap-3 px-4 py-3 bg-white no-underline border-b border-red-100 last:border-none active:bg-red-50"
-                      >
-                        <span className="text-[20px] w-7 text-center flex-shrink-0">{typeIcon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[14px] text-ink">{c.name}</p>
-                          <p className="text-[13px] text-sky">{c.phone || (c.address ? 'Tap for map →' : '')}</p>
-                          {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
-                        </div>
-                      </a>
-                    ) : (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3 bg-white border-b border-red-100 last:border-none">
-                        <span className="text-[20px] w-7 text-center flex-shrink-0">{typeIcon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-[14px] text-ink">{c.name}</p>
-                          <p className="text-[11px] text-soft uppercase tracking-wide">{c.type}</p>
-                          {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Day emergency contacts — filtered to this overnight location */}
+          {(() => {
+            const loc = currentDay.overnight_location || ''
+            const allContacts = tripData?.emergency_contacts || []
+            const dayContacts = allContacts.filter(c =>
+              !c.location || c.location.toLowerCase() === loc.toLowerCase()
+            )
+            if (dayContacts.length === 0) return null
+            return (
+              <div className="rounded-card mb-3.5 overflow-hidden border border-red-200">
+                <button
+                  onClick={() => setSosOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
+                >
+                  <span className="text-[13px] font-semibold text-red-700">🆘 Emergency contacts{loc ? ` — ${loc}` : ''}</span>
+                  <span className={`text-line text-[10px] transition-transform ${sosOpen ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                {sosOpen && (
+                  <div>
+                    {dayContacts.map((c, i) => {
+                      const href = c.phone
+                        ? `tel:${c.phone.replace(/\s/g, '')}`
+                        : c.address
+                          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                          : undefined
+                      const icon = CONTACT_ICON[c.type] || '📞'
+                      const label = CONTACT_LABEL[c.type] || c.type
+                      const inner = (
+                        <>
+                          <span className="text-[20px] w-7 text-center flex-shrink-0">{icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-[14px] text-ink">{c.name}</p>
+                            <p className="text-[12px] text-soft">{label}</p>
+                            {c.phone && <p className="text-[13px] text-sky">{c.phone}</p>}
+                            {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                            {c.notes && <p className="text-[11px] text-soft italic">{c.notes}</p>}
+                          </div>
+                          {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Call</span>}
+                          {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0 mr-1">Map →</span>}
+                        </>
+                      )
+                      const baseCls = 'flex items-center gap-3 px-4 py-3 bg-white border-b border-red-100 last:border-none'
+                      return href ? (
+                        <a key={i} href={href} className={`${baseCls} no-underline active:bg-red-50`}>{inner}</a>
+                      ) : (
+                        <div key={i} className={baseCls}>{inner}</div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Prev / Next */}
           <div className="flex gap-3 pt-2">
@@ -696,7 +1091,6 @@ export default function TripViewPage() {
           </div>
         </div>
       )}
-
 
       {/* ── Undo toast ───────────────────────────────────────────────────────── */}
       {lastDeleted && (

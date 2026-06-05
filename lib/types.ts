@@ -16,6 +16,7 @@ export interface IntakeForm {
   must_include?: string
   notes?: string
   pets?: string                  // e.g. "2 dogs" — drives dog-friendly tagging & vet contacts
+  emergency_prefs?: string[]     // contact types to generate: 'a_and_e','walk_in','vet','pharmacy','breakdown'
 }
 
 // ── Trip Stop & Day ───────────────────────────────────────────────────────────
@@ -66,9 +67,10 @@ export interface DaySection {
 
 export interface EmergencyContact {
   name: string
-  type: 'vet' | 'hospital' | 'police' | 'pharmacy' | 'breakdown' | 'other'
+  type: 'vet' | 'hospital' | 'a_and_e' | 'walk_in' | 'police' | 'pharmacy' | 'breakdown' | 'other'
   phone?: string
   address?: string
+  location?: string   // town/area this contact is for, e.g. "York", "Edinburgh"
   notes?: string
 }
 
