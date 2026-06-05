@@ -790,6 +790,16 @@ export default function TripViewPage() {
           )}
 
           {/* Stops */}
+          {isOwner && currentDay.stops.length === 0 && (
+            <div className="bg-white rounded-card mb-3.5 flex flex-col items-center gap-3 py-8 px-4 text-center" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
+              <p className="text-[13px] text-soft">No stops on this day yet</p>
+              <button
+                onClick={() => setAddSheetOpen(true)}
+                className="btn-primary"
+                style={{ width: 'auto', paddingLeft: 28, paddingRight: 28 }}
+              >+ Add a stop</button>
+            </div>
+          )}
           {currentDay.stops.length > 0 && (
             <div className="bg-white rounded-card mb-3.5" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
               <div className="bg-card-bg border-b border-line px-4 py-2.5 flex items-center justify-between">
