@@ -351,39 +351,6 @@ export default function TripViewPage() {
     try { localStorage.removeItem(`trip-deleted-${id}`) } catch { /* ignore */ }
   }, [id])
 
-  const [scanState, setScanState] = useState<null | 'scanning' | { fields: string[] }>(null)
-
-  const handlePhotoScan = useCallback(async (dayIndex: number, stopIndex: number, dataUrl: string) => {
-    if (!tripData) return
-    setScanState('scanning')
-    try {
-      const stop = tripData.days[dayIndex].stops[stopIndex]
-      const res = await fetch(`/api/trips/${id}/scan-photo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo: dataUrl, stopType: stop.type }),
-      })
-      if (!res.ok) { setScanState(null); return }
-      const { updates } = await res.json() as { updates: Record<string, string> }
-      const fields = Object.keys(updates || {}).filter(k => updates[k])
-      if (fields.length === 0) { setScanState(null); return }
-      const updated: TripData = {
-        ...tripData,
-        days: tripData.days.map((day, di) =>
-          di !== dayIndex ? day : {
-            ...day,
-            stops: day.stops.map((s, si) => si !== stopIndex ? s : { ...s, ...updates }),
-          }
-        ),
-      }
-      setTripData(updated)
-      await saveData(updated)
-      setScanState({ fields })
-      setTimeout(() => setScanState(null), 5000)
-    } catch {
-      setScanState(null)
-    }
-  }, [tripData, id, saveData])
 
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/trips/${id}`
@@ -650,7 +617,6 @@ export default function TripViewPage() {
                     isLast={i === currentDay.stops.length - 1}
                     isOwner={isOwner}
                     onDelete={() => handleDeleteStop(activeDay, i)}
-                    onScanPhoto={isOwner ? (url) => handlePhotoScan(activeDay, i, url) : undefined}
                   />
                 ))}
               </div>
@@ -731,29 +697,6 @@ export default function TripViewPage() {
         </div>
       )}
 
-      {/* ── Scan photo toast ─────────────────────────────────────────────────── */}
-      {scanState && (
-        <div
-          className="fixed left-4 right-4 z-[60] flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl"
-          style={{ bottom: 88, background: '#1e3a5f' }}
-        >
-          {scanState === 'scanning' ? (
-            <>
-              <div className="w-4 h-4 border-2 rounded-full flex-shrink-0 animate-spin" style={{ borderColor: 'rgba(255,255,255,0.25)', borderTopColor: '#fff' }} />
-              <p className="text-[13px] text-white">Analysing photo…</p>
-            </>
-          ) : (
-            <>
-              <span className="text-lg flex-shrink-0">✅</span>
-              <p className="text-[13px] text-white">
-                Found: {(scanState as { fields: string[] }).fields
-                  .map(f => ({ check_in:'check-in', check_out:'check-out', booking_ref:'booking ref', address:'address', name:'name', phone:'phone', website:'website', notes:'notes' }[f] || f))
-                  .join(', ')}
-              </p>
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── Undo toast ───────────────────────────────────────────────────────── */}
       {lastDeleted && (

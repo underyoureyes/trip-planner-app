@@ -9,7 +9,6 @@ interface Props {
   isLast?: boolean
   onDelete?: () => void
   isOwner?: boolean
-  onScanPhoto?: (dataUrl: string) => void
 }
 
 function dotClass(type: string, isFirst: boolean, isLast: boolean) {
@@ -29,32 +28,11 @@ const ICONS: Record<string, string> = {
   castle:'🏰', distillery:'🥃', museum:'🏛️', fuel:'⛽', other:'📍',
 }
 
-function compressImage(file: File): Promise<string> {
-  return new Promise(resolve => {
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const img = new Image()
-      img.onload = () => {
-        const MAX_W = 1200
-        const scale = Math.min(1, MAX_W / img.width)
-        const canvas = document.createElement('canvas')
-        canvas.width  = Math.round(img.width  * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/jpeg', 0.72))
-      }
-      img.src = ev.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
-export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false, onScanPhoto }: Props) {
+export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false }: Props) {
   const [dragX,      setDragX]      = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [swipeOpen,  setSwipeOpen]  = useState(false)
 
-  const fileRef    = useRef<HTMLInputElement>(null)
   const pointerRef = useRef<{ active: boolean; startX: number; startY: number; locked: boolean }>({
     active: false, startX: 0, startY: 0, locked: false,
   })
@@ -106,16 +84,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
     }
   }
 
-  // ── Photo scan ───────────────────────────────────────────────────────────────
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const url = await compressImage(file)
-    onScanPhoto?.(url)
-    e.target.value = ''
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -151,7 +119,7 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
         />
       )}
 
-      {/* Sliding card — position:relative ensures it stacks above the delete panel */}
+      {/* Sliding card */}
       <div
         className="relative bg-white"
         style={{
@@ -187,7 +155,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
                 )}
                 <p className="font-semibold text-[15px] text-ink leading-snug">{stop.name}</p>
               </div>
-              {/* × opens the delete panel (same as swiping) */}
               {canSwipe && (
                 <button
                   onPointerDown={e => e.stopPropagation()}
@@ -246,15 +213,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
                 {stop.phone && (
                   <a href={`tel:${stop.phone}`} className="stop-nav-btn" onPointerDown={e => e.stopPropagation()}>📞 Call</a>
                 )}
-                {isOwner && onScanPhoto && (
-                  <button
-                    className="stop-nav-btn"
-                    onPointerDown={e => e.stopPropagation()}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    📷 Scan booking
-                  </button>
-                )}
               </div>
             )}
 
@@ -267,17 +225,6 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
           </div>
         </div>
       </div>
-
-      {/* Hidden file input — no capture= so user can choose camera or library */}
-      {isOwner && onScanPhoto && !isDrive && (
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFile}
-        />
-      )}
     </div>
   )
 }
