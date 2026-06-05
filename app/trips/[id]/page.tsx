@@ -14,7 +14,15 @@ import TripRouteCard from '@/components/trip/TripRouteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: number) => void }) {
+function OverviewSection({
+  days,
+  emergencyContacts,
+  onSelectDay,
+}: {
+  days: Day[]
+  emergencyContacts?: import('@/lib/types').EmergencyContact[]
+  onSelectDay: (i: number) => void
+}) {
   return (
     <div className="px-4 pt-4 pb-32" style={{ maxWidth: 560, margin: '0 auto' }}>
       <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Your Itinerary</p>
@@ -23,6 +31,13 @@ function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: 
           const driveKm   = day.stops.filter(s => s.type === 'drive').reduce((a, s) => a + (s.distance_km || 0), 0)
           const stopCount = day.stops.filter(s => s.type !== 'drive').length
           const isHighlight = day.highlight === true
+
+          const meta: string[] = []
+          if (driveKm > 0)   meta.push(`~${Math.round(driveKm)} km`)
+          if (stopCount > 1)  meta.push(`${stopCount} stops`)
+          if (stopCount === 1) meta.push('1 stop')
+          if (meta.length === 0 && day.overnight_location) meta.push(`🌙 ${day.overnight_location}`)
+
           return (
             <button
               key={i}
@@ -44,15 +59,59 @@ function OverviewSection({ days, onSelectDay }: { days: Day[]; onSelectDay: (i: 
                   </p>
                 )}
                 <p className="text-[14px] font-semibold text-ink leading-snug truncate">{day.title || `Day ${day.day_number}`}</p>
-                <p className="text-[12px] text-soft">
-                  {[driveKm > 0 && `~${Math.round(driveKm)} km`, stopCount > 0 && `${stopCount} stops`].filter(Boolean).join(' · ')}
-                </p>
+                {day.overnight_location && stopCount > 0 && (
+                  <p className="text-[12px] text-soft truncate">🌙 {day.overnight_location}</p>
+                )}
+                {meta.length > 0 && (
+                  <p className="text-[12px] text-soft">{meta.join(' · ')}</p>
+                )}
               </div>
               <span className="flex-shrink-0 text-[18px]" style={{ color: '#d1d9e6' }}>›</span>
             </button>
           )
         })}
       </div>
+
+      {/* ── Emergency & useful contacts ── */}
+      {emergencyContacts && emergencyContacts.length > 0 && (
+        <div className="mt-5">
+          <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-3">Emergency &amp; Useful Contacts</p>
+          <div className="bg-white rounded-card overflow-hidden" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)', border: '1px solid rgba(220,38,38,0.12)' }}>
+            {emergencyContacts.map((c, i) => {
+              const typeIcon =
+                c.type === 'vet'       ? '🐾' :
+                c.type === 'hospital'  ? '🏥' :
+                c.type === 'police'    ? '🚨' :
+                c.type === 'pharmacy'  ? '💊' :
+                c.type === 'breakdown' ? '🔧' : '📞'
+              const href = c.phone
+                ? `tel:${c.phone.replace(/\s/g, '')}`
+                : c.address
+                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`
+                  : undefined
+              const inner = (
+                <>
+                  <span className="text-[22px] w-8 text-center flex-shrink-0">{typeIcon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[14px] text-ink leading-snug">{c.name}</p>
+                    {c.phone  && <p className="text-[13px] text-sky">{c.phone}</p>}
+                    {!c.phone && c.address && <p className="text-[12px] text-soft truncate">{c.address}</p>}
+                    {c.notes  && <p className="text-[11px] text-soft italic mt-0.5">{c.notes}</p>}
+                  </div>
+                  {c.phone && <span className="text-[12px] font-semibold text-sky flex-shrink-0">Call</span>}
+                  {!c.phone && c.address && <span className="text-[12px] font-semibold text-sky flex-shrink-0">Map →</span>}
+                </>
+              )
+              const cls = `flex items-center gap-3 px-4 py-3.5 no-underline ${i < emergencyContacts.length - 1 ? 'border-b border-red-100' : ''}`
+              return href ? (
+                <a key={i} href={href} className={cls} style={{ background: 'white' }}>{inner}</a>
+              ) : (
+                <div key={i} className={cls}>{inner}</div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -642,7 +701,11 @@ export default function TripViewPage() {
 
       {/* ── Overview ─────────────────────────────────────────────────────────── */}
       {activeDay === -1 && days.length > 0 && (
-        <OverviewSection days={days} onSelectDay={setActiveDay} />
+        <OverviewSection
+          days={days}
+          emergencyContacts={tripData?.emergency_contacts}
+          onSelectDay={setActiveDay}
+        />
       )}
       {activeDay === -1 && days.length === 0 && (
         <div className="px-4 pt-12 text-center text-soft"><p>No days planned yet</p></div>
