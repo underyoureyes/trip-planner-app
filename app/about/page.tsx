@@ -150,18 +150,23 @@ export default function AboutPage() {
         {/* ── Access ── */}
         <section>
           <div className="bg-white rounded-card px-5 py-5 text-center space-y-3" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)' }}>
-            <p className="font-semibold text-[15px] text-ink">Ready to plan your next trip?</p>
+            <p className="font-semibold text-[15px] text-ink">Want access?</p>
             <p className="text-[13px] text-soft leading-snug">
-              Access is by invite code. Once registered, add your own Claude API key in Settings — your key, your usage, your data.
+              Access is by invite code. Email to request one — once you have it, registration takes 30 seconds.
             </p>
-            <div className="flex justify-center gap-3 pt-1">
-              <Link href="/register" className="btn-primary" style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}>
-                Get started
-              </Link>
-              <Link href="/login" className="btn-secondary" style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}>
-                Sign in
-              </Link>
-            </div>
+            <a
+              href="mailto:d.castledine1971@gmail.com?subject=Trip%20Planner%20invite%20code"
+              className="btn-primary inline-flex items-center gap-2"
+              style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}
+            >
+              ✉️ Email for invite code
+            </a>
+            <p className="text-[12px] text-soft">
+              Already have a code?{' '}
+              <Link href="/register" className="text-brand-600 underline underline-offset-2">Register</Link>
+              {' '}·{' '}
+              <Link href="/login" className="text-brand-600 underline underline-offset-2">Sign in</Link>
+            </p>
           </div>
         </section>
 
