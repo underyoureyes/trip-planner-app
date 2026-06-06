@@ -286,9 +286,12 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
               <p className="text-[12px] text-soft mt-1">📍 {stop.address}</p>
             )}
 
-            {/* Booking ref */}
-            {stop.booking_ref && (
+            {/* Booking ref — hidden from shared/read-only viewers */}
+            {stop.booking_ref && isOwner && (
               <p className="text-[12px] font-mono text-ink mt-1">🎟️ {stop.booking_ref}</p>
+            )}
+            {stop.booking_ref && !isOwner && isHotel && (
+              <p className="text-[12px] text-soft mt-1">🎟️ <span className="font-mono tracking-widest" style={{ letterSpacing: '0.15em' }}>••••••••</span> <span className="italic">(owner only)</span></p>
             )}
 
             {/* Action pills */}
@@ -308,10 +311,15 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
               </div>
             )}
 
-            {/* Notes gold box */}
-            {stop.notes && (
+            {/* Notes gold box — hotel notes hidden from shared viewers (may contain access codes) */}
+            {stop.notes && (isOwner || !isHotel) && (
               <div className="bg-gold-pale border border-[#f0c040] rounded-lg p-2.5 mt-2">
                 <p className="text-[12px]" style={{ color: '#5a3e00' }}>{stop.notes}</p>
+              </div>
+            )}
+            {stop.notes && !isOwner && isHotel && (
+              <div className="rounded-lg p-2.5 mt-2" style={{ background: '#f1f5f9', border: '1px solid #d1d9e6' }}>
+                <p className="text-[12px] text-soft italic">🔒 Access details — visible to trip owner only</p>
               </div>
             )}
 
