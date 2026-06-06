@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export const metadata: Metadata = {
   title: 'About — Trip Planner',
@@ -59,8 +60,12 @@ const stack = [
   { name: 'Vercel', role: 'Edge deployment, automatic HTTPS, CI/CD from GitHub', color: '#000' },
 ]
 
-export default function AboutPage({ searchParams }: { searchParams: { next?: string } }) {
+export default async function AboutPage({ searchParams }: { searchParams: { next?: string } }) {
   const nextUrl = searchParams.next ? `${searchParams.next}?from_about=1` : null
+
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = Boolean(user)
 
   return (
     <div className="min-h-screen bg-mist" style={{ paddingBottom: nextUrl ? 88 : 0 }}>
@@ -81,21 +86,6 @@ export default function AboutPage({ searchParams }: { searchParams: { next?: str
         <p className="text-blue-200 text-[16px] leading-relaxed max-w-sm mx-auto">
           Tell Claude where you want to go, how long you have, and what you love. Get a complete day-by-day itinerary in seconds.
         </p>
-        <div className="flex justify-center gap-3 mt-8">
-          <Link
-            href="/login"
-            className="px-6 py-3 rounded-[14px] font-semibold text-[15px] bg-white text-[#1a1a2e] active:opacity-90 transition-opacity"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="px-6 py-3 rounded-[14px] font-semibold text-[15px] text-white active:opacity-70 transition-opacity"
-            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}
-          >
-            Get access
-          </Link>
-        </div>
       </div>
 
       <div className="px-4 pt-8 pb-20 max-w-lg mx-auto space-y-8">
@@ -170,27 +160,52 @@ export default function AboutPage({ searchParams }: { searchParams: { next?: str
         </section>
 
         {/* ── Access ── */}
-        <section>
-          <div className="bg-white rounded-card px-5 py-5 text-center space-y-3" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)' }}>
-            <p className="font-semibold text-[15px] text-ink">Want access?</p>
-            <p className="text-[13px] text-soft leading-snug">
-              Access is by invite code. Email to request one — once you have it, registration takes 30 seconds.
-            </p>
-            <a
-              href="mailto:d.castledine1971@gmail.com?subject=Trip%20Planner%20invite%20code"
-              className="btn-primary inline-flex items-center gap-2"
-              style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}
-            >
-              ✉️ Email for invite code
-            </a>
-            <p className="text-[12px] text-soft">
-              Already have a code?{' '}
-              <Link href="/register" className="text-brand-600 underline underline-offset-2">Register</Link>
-              {' '}·{' '}
-              <Link href="/login" className="text-brand-600 underline underline-offset-2">Sign in</Link>
-            </p>
-          </div>
-        </section>
+        {isLoggedIn ? (
+          <section>
+            <div className="bg-white rounded-card px-5 py-5 text-center space-y-3" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)' }}>
+              <p className="font-semibold text-[15px] text-ink">You&apos;re signed in</p>
+              <Link
+                href="/trips"
+                className="btn-primary inline-flex items-center gap-2"
+                style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}
+              >
+                🗺️ My trips →
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <section>
+            <div className="bg-white rounded-card px-5 py-5 text-center space-y-3" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)' }}>
+              <p className="font-semibold text-[15px] text-ink">Want access?</p>
+              <p className="text-[13px] text-soft leading-snug">
+                Access is by invite code. Email to request one — once you have it, registration takes 30 seconds.
+              </p>
+              <a
+                href="mailto:d.castledine1971@gmail.com?subject=Trip%20Planner%20invite%20code"
+                className="btn-primary inline-flex items-center gap-2"
+                style={{ width: 'auto', paddingLeft: 24, paddingRight: 24 }}
+              >
+                ✉️ Email for invite code
+              </a>
+              <div className="flex justify-center gap-4 pt-1">
+                <Link
+                  href="/register"
+                  className="px-5 py-2.5 rounded-[12px] font-semibold text-[14px] text-white active:opacity-70"
+                  style={{ background: '#2563a8' }}
+                >
+                  Get access
+                </Link>
+                <Link
+                  href="/login"
+                  className="px-5 py-2.5 rounded-[12px] font-semibold text-[14px] text-[#1a1a2e] bg-white active:opacity-70"
+                  style={{ border: '1.5px solid #d1d9e6' }}
+                >
+                  Sign in
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
       </div>
 
