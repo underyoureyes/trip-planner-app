@@ -4,6 +4,8 @@ import { getClaudeClient } from '@/lib/claude'
 import { recordUsage } from '@/lib/usage'
 import type { TripData, Stop } from '@/lib/types'
 
+export const maxDuration = 60
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

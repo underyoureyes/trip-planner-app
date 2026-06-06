@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
 import { recordUsage } from '@/lib/usage'
 
+export const maxDuration = 60
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getClaudeClient } from '@/lib/claude'
 import { recordUsage } from '@/lib/usage'
 
+export const maxDuration = 60
+
 const MAX_ROWS = 200
 const MAX_CHARS = 8000
 

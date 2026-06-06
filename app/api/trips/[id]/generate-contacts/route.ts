@@ -4,6 +4,8 @@ import { getClaudeClient } from '@/lib/claude'
 import { recordUsage } from '@/lib/usage'
 import type { EmergencyContact, IntakeForm } from '@/lib/types'
 
+export const maxDuration = 120
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }

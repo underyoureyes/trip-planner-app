@@ -4,6 +4,8 @@ import { createTripStream, parseTripJson } from '@/lib/claude'
 import { recordUsage } from '@/lib/usage'
 import type { IntakeForm } from '@/lib/types'
 
+export const maxDuration = 300
+
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`
 }
