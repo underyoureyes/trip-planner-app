@@ -830,7 +830,8 @@ export default function TripViewPage() {
         <div>
           <div className="text-6xl mb-4">❌</div>
           <h2 className="text-xl font-semibold text-ink mb-2">Generation failed</h2>
-          <p className="text-soft text-sm mb-6">Something went wrong. Please try again.</p>
+          <p className="text-soft text-sm mb-2">{error || 'Something went wrong. Please try again.'}</p>
+          {error && <p className="text-[11px] text-soft mb-5">Check your Claude API key in Settings, then retry.</p>}
           <button onClick={() => { startedRef.current = false; startGeneration() }} className="btn-primary">Retry</button>
         </div>
       </div>
