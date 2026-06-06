@@ -340,6 +340,29 @@ function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay:
                     </a>
                   </div>
                 )}
+                {(stop.pay_at_hotel || stop.cancellation_policy) && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {stop.pay_at_hotel && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#fef9ec', color: '#92400e', border: '1px solid #f6d860' }}>
+                        💳 Pay at hotel
+                      </span>
+                    )}
+                    {stop.cancellation_policy && (() => {
+                      const p = stop.cancellation_policy.toLowerCase()
+                      const isFree = p.includes('free') || (p.includes('cancel') && !p.includes('non'))
+                      const isNonRefund = p.includes('non-refund') || p.includes('no refund')
+                      return (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={
+                          isFree ? { background: '#d8f3dc', color: '#1a4731', border: '1px solid #b7e4c7' } :
+                          isNonRefund ? { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' } :
+                          { background: '#e8edf5', color: '#334155', border: '1px solid #d1d9e6' }
+                        }>
+                          {isFree ? '🔓' : isNonRefund ? '🔒' : '📋'} {stop.cancellation_policy}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Action links */}
@@ -657,6 +680,21 @@ export default function TripViewPage() {
       ...tripData,
       days: tripData.days.map((day, di) =>
         di !== dayIndex ? day : { ...day, eating: (day.eating || []).filter((_, ei) => ei !== eatIndex) }
+      ),
+    }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
+  const handleUpdateStop = useCallback(async (dayIndex: number, stopIndex: number, patch: Partial<Stop>) => {
+    if (!tripData) return
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) =>
+        di !== dayIndex ? day : {
+          ...day,
+          stops: day.stops.map((s, si) => si !== stopIndex ? s : { ...s, ...patch }),
+        }
       ),
     }
     setTripData(updated)
@@ -1005,7 +1043,9 @@ export default function TripViewPage() {
                     isFirst={i === 0}
                     isLast={i === currentDay.stops.length - 1}
                     isOwner={isOwner}
+                    tripId={id}
                     onDelete={() => handleDeleteStop(activeDay, i)}
+                    onUpdate={(patch) => handleUpdateStop(activeDay, i, patch)}
                   />
                 ))}
               </div>

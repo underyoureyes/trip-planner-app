@@ -8,7 +8,9 @@ interface Props {
   isFirst?: boolean
   isLast?: boolean
   onDelete?: () => void
+  onUpdate?: (patch: Partial<Stop>) => void
   isOwner?: boolean
+  tripId?: string
 }
 
 function dotClass(type: string, isFirst: boolean, isLast: boolean) {
@@ -28,16 +30,53 @@ const ICONS: Record<string, string> = {
   castle:'🏰', distillery:'🥃', museum:'🏛️', fuel:'⛽', other:'📍',
 }
 
-export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, isOwner=false }: Props) {
-  const [dragX,      setDragX]      = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [swipeOpen,  setSwipeOpen]  = useState(false)
+function policyStyle(policy: string): { icon: string; bg: string; color: string; border: string } {
+  const p = policy.toLowerCase()
+  if (p.includes('free') || (p.includes('cancel') && !p.includes('non'))) {
+    return { icon: '🔓', bg: '#d8f3dc', color: '#1a4731', border: '#b7e4c7' }
+  }
+  if (p.includes('non-refund') || p.includes('nonrefund') || p.includes('no refund') || p.includes('non refund')) {
+    return { icon: '🔒', bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
+  }
+  return { icon: '📋', bg: '#e8edf5', color: '#334155', border: '#d1d9e6' }
+}
 
-  const pointerRef = useRef<{ active: boolean; startX: number; startY: number; locked: boolean }>({
+function compressImage(file: File): Promise<string> {
+  return new Promise(resolve => {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX_W = 1200
+        const scale = Math.min(1, MAX_W / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, onUpdate, isOwner=false, tripId }: Props) {
+  const [dragX,          setDragX]          = useState(0)
+  const [isDragging,     setIsDragging]     = useState(false)
+  const [swipeOpen,      setSwipeOpen]      = useState(false)
+  const [editingPolicy,  setEditingPolicy]  = useState(false)
+  const [draftPolicy,    setDraftPolicy]    = useState(stop.cancellation_policy || '')
+  const [draftPayAt,     setDraftPayAt]     = useState(stop.pay_at_hotel ?? false)
+  const [scanningPolicy, setScanningPolicy] = useState(false)
+
+  const pointerRef    = useRef<{ active: boolean; startX: number; startY: number; locked: boolean }>({
     active: false, startX: 0, startY: 0, locked: false,
   })
+  const policyFileRef = useRef<HTMLInputElement>(null)
 
   const isDrive      = stop.type === 'drive'
+  const isHotel      = stop.type === 'hotel'
   const canSwipe     = isOwner && !isDrive
   const icon         = ICONS[stop.type] || '📍'
   const websiteLabel = stop.website_label || 'Website'
@@ -48,6 +87,40 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
   const translateX = swipeOpen ? -100 : dragX
 
   function closeSwipe() { setSwipeOpen(false); setDragX(0) }
+
+  function openEditPolicy() {
+    setDraftPolicy(stop.cancellation_policy || '')
+    setDraftPayAt(stop.pay_at_hotel ?? false)
+    setEditingPolicy(true)
+  }
+
+  function savePolicy() {
+    onUpdate?.({
+      cancellation_policy: draftPolicy.trim() || undefined,
+      pay_at_hotel: draftPayAt || undefined,
+    })
+    setEditingPolicy(false)
+  }
+
+  async function handleScanPolicy(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !tripId) return
+    e.target.value = ''
+    setScanningPolicy(true)
+    try {
+      const dataUrl = await compressImage(file)
+      const res = await fetch(`/api/trips/${tripId}/scan-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: dataUrl, stopType: 'hotel' }),
+      })
+      const { updates } = await res.json() as { updates: Record<string, unknown> }
+      if (updates?.cancellation_policy) setDraftPolicy(String(updates.cancellation_policy))
+      if (updates?.pay_at_hotel !== undefined) setDraftPayAt(Boolean(updates.pay_at_hotel))
+    } catch { /* silent */ } finally {
+      setScanningPolicy(false)
+    }
+  }
 
   // ── Pointer / swipe handlers ─────────────────────────────────────────────────
 
@@ -180,8 +253,27 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
               </p>
             )}
             {/* Hotel check-in/out */}
-            {stop.type === 'hotel' && stop.check_in && (
+            {isHotel && stop.check_in && (
               <p className="text-[12px] text-soft mt-0.5">Check-in {stop.check_in} · Out {stop.check_out}</p>
+            )}
+
+            {/* Cancellation / payment policy badges */}
+            {isHotel && (stop.cancellation_policy || stop.pay_at_hotel) && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {stop.pay_at_hotel && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#fef9ec', color: '#92400e', border: '1px solid #f6d860' }}>
+                    💳 Pay at hotel
+                  </span>
+                )}
+                {stop.cancellation_policy && (() => {
+                  const s = policyStyle(stop.cancellation_policy)
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
+                      {s.icon} {stop.cancellation_policy}
+                    </span>
+                  )
+                })()}
+              </div>
             )}
 
             {/* Description */}
@@ -220,6 +312,82 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
             {stop.notes && (
               <div className="bg-gold-pale border border-[#f0c040] rounded-lg p-2.5 mt-2">
                 <p className="text-[12px]" style={{ color: '#5a3e00' }}>{stop.notes}</p>
+              </div>
+            )}
+
+            {/* Hotel policy edit (owner only) */}
+            {isHotel && isOwner && onUpdate && (
+              <div onPointerDown={e => e.stopPropagation()}>
+                {!editingPolicy ? (
+                  <button
+                    onClick={() => openEditPolicy()}
+                    className="mt-2 text-[11px] font-semibold active:opacity-60"
+                    style={{ color: '#94a3b8' }}
+                  >
+                    📋 {stop.cancellation_policy || stop.pay_at_hotel ? 'Edit' : 'Add'} booking policy
+                  </button>
+                ) : (
+                  <div className="mt-2 rounded-xl p-3 space-y-2.5" style={{ background: '#f1f5f9' }}>
+                    {/* Pay at hotel toggle */}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDraftPayAt(v => !v)}
+                        className="relative flex-shrink-0 rounded-full transition-colors"
+                        style={{ width: 40, height: 22, background: draftPayAt ? '#d97706' : '#cbd5e1' }}
+                      >
+                        <span
+                          className="absolute top-[2px] rounded-full bg-white shadow transition-all"
+                          style={{ width: 18, height: 18, left: draftPayAt ? 20 : 2 }}
+                        />
+                      </button>
+                      <span className="text-[12px] font-medium text-ink">💳 Pay at hotel</span>
+                    </div>
+
+                    {/* Cancellation policy */}
+                    <input
+                      type="text"
+                      placeholder="Cancellation policy — e.g. Free until 14 Jun"
+                      value={draftPolicy}
+                      onChange={e => setDraftPolicy(e.target.value)}
+                      className="input-field text-[13px] w-full"
+                      style={{ padding: '8px 12px' }}
+                    />
+
+                    {/* Scan button */}
+                    {tripId && (
+                      <button
+                        onClick={() => policyFileRef.current?.click()}
+                        disabled={scanningPolicy}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold active:opacity-70 disabled:opacity-40"
+                        style={{ color: '#2563a8' }}
+                      >
+                        <span>{scanningPolicy ? '⏳' : '📷'}</span>
+                        {scanningPolicy ? 'Scanning…' : 'Scan booking screenshot'}
+                      </button>
+                    )}
+                    <input
+                      ref={policyFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleScanPolicy}
+                    />
+
+                    {/* Save / Cancel */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={savePolicy}
+                        className="flex-1 py-2 rounded-lg text-[13px] font-semibold text-white active:opacity-80"
+                        style={{ background: '#2563a8' }}
+                      >Save</button>
+                      <button
+                        onClick={() => setEditingPolicy(false)}
+                        className="flex-1 py-2 rounded-lg text-[13px] font-semibold border border-line text-soft active:bg-mist"
+                      >Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

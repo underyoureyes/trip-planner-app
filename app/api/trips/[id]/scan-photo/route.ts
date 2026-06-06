@@ -48,7 +48,7 @@ export async function POST(
     const client = getClaudeClient(settings.claude_api_key)
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 500,
+      max_tokens: 600,
       messages: [{
         role: 'user',
         content: [
@@ -72,6 +72,8 @@ Return ONLY a JSON object containing fields you can clearly read from the image.
 - "check_out": check-out time in "HH:MM" 24h format (hotels only)
 - "booking_ref": booking or confirmation reference/number
 - "website": website URL if visible
+- "cancellation_policy": cancellation terms as a short human-readable string, e.g. "Free cancellation until 14 Jun 2026", "Non-refundable", "Free cancellation until 3 days before arrival" (hotels only)
+- "pay_at_hotel": true if the booking states "pay at hotel", "pay on arrival", or similar; false if prepaid or deposit paid (hotels only, boolean)
 - "notes": any other important detail (max one sentence)
 
 Only include fields you can clearly read. Omit fields that are not visible. Return {} if the image contains no booking or location information. Output valid JSON only, no markdown.`,

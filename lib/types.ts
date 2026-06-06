@@ -46,6 +46,8 @@ export interface Stop {
   // Hotel stops
   check_in?: string
   check_out?: string
+  cancellation_policy?: string   // e.g. "Free cancellation until 14 Jun 2026" / "Non-refundable"
+  pay_at_hotel?: boolean         // true = pay on arrival, false/undefined = prepaid or unknown
 }
 
 export interface Eating {

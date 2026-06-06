@@ -139,13 +139,15 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
       const stop: Stop = {
         name: updates.name,
         type: updates.check_in ? 'hotel' : 'other',
-        ...(updates.address     && { address:     updates.address }),
-        ...(updates.phone       && { phone:       updates.phone }),
-        ...(updates.check_in    && { check_in:    updates.check_in }),
-        ...(updates.check_out   && { check_out:   updates.check_out }),
-        ...(updates.booking_ref && { booking_ref: updates.booking_ref }),
-        ...(updates.website     && { website:     updates.website }),
-        ...(updates.notes       && { notes:       updates.notes }),
+        ...(updates.address              && { address:              updates.address }),
+        ...(updates.phone                && { phone:                updates.phone }),
+        ...(updates.check_in             && { check_in:             updates.check_in }),
+        ...(updates.check_out            && { check_out:            updates.check_out }),
+        ...(updates.booking_ref          && { booking_ref:          updates.booking_ref }),
+        ...(updates.website              && { website:              updates.website }),
+        ...(updates.cancellation_policy  && { cancellation_policy:  updates.cancellation_policy }),
+        ...(updates.pay_at_hotel !== undefined && { pay_at_hotel: Boolean(updates.pay_at_hotel) }),
+        ...(updates.notes                && { notes:                updates.notes }),
       }
       setPreview(stop)
     } catch {
@@ -312,6 +314,12 @@ export default function AddStopSheet({ tripId, dayIndex, dayTitle, isOpen, onClo
                 )}
                 {preview.booking_ref && (
                   <p className="text-[12px] font-mono text-ink mb-1">🎟️ {preview.booking_ref}</p>
+                )}
+                {preview.pay_at_hotel && (
+                  <p className="text-[12px] mb-1" style={{ color: '#92400e' }}>💳 Pay at hotel</p>
+                )}
+                {preview.cancellation_policy && (
+                  <p className="text-[12px] mb-1 text-soft">📋 {preview.cancellation_policy}</p>
                 )}
                 {preview.duration_mins && (
                   <p className="text-[12px] text-soft mb-2">⏱ {durLabel(preview.duration_mins)}</p>
