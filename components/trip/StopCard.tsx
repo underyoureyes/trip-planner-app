@@ -286,8 +286,8 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
               <p className="text-[12px] text-soft mt-1">📍 {stop.address}</p>
             )}
 
-            {/* Booking ref — hidden from shared/read-only viewers */}
-            {stop.booking_ref && isOwner && (
+            {/* Booking ref — hotel refs are masked for non-owners; other stop refs are always shown */}
+            {stop.booking_ref && (isOwner || !isHotel) && (
               <p className="text-[12px] font-mono text-ink mt-1">🎟️ {stop.booking_ref}</p>
             )}
             {stop.booking_ref && !isOwner && isHotel && (

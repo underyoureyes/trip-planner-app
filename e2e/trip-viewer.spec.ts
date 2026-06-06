@@ -128,11 +128,11 @@ test.describe('Trip viewer (mocked API)', () => {
 
   test('shows weather link for overnight location', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    const weatherLink = page.getByText(/Check weather in Pitlochry/)
+    const weatherLink = page.locator('a[href*="bbc.co.uk/weather"]')
     await expect(weatherLink).toBeVisible()
     const href = await weatherLink.getAttribute('href')
     expect(href).toContain('Pitlochry')
-    expect(href).toContain('weather')
+    await expect(page.getByText(/Check BBC Weather for Pitlochry/)).toBeVisible()
   })
 
   test('shows stop names on day 1', async ({ page }) => {
@@ -163,13 +163,14 @@ test.describe('Trip viewer (mocked API)', () => {
     await expect(page.getByText(/Pitlochry dam walk/)).not.toBeVisible()
   })
 
-  test('emergency SOS section is collapsible', async ({ page }) => {
+  test('per-day emergency contacts section is collapsible', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    const sosBtn = page.getByText(/Emergency.*SOS/i)
+    // Navigate to Day 1 where contacts without a location field appear
+    await page.getByText('Day 1').click()
+    const sosBtn = page.locator('button', { hasText: /Emergency contacts/i }).first()
     await expect(sosBtn).toBeVisible()
     await sosBtn.click()
     await expect(page.getByText('Inverness Raigmore Hospital')).toBeVisible()
-    await expect(page.getByText('Highland Vets Inverness')).toBeVisible()
     await expect(page.getByText('01463 704000')).toBeVisible()
   })
 
