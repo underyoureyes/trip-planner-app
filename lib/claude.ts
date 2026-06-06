@@ -24,7 +24,7 @@ CRITICAL RULES:
 - Add "sections" for any day that warrants extra categorised notes (dog tips, cycling notes, tide times, etc.)
 - Include "emergency_contacts" at trip level, grouped by overnight location. For EACH overnight town generate the requested contact types (see EMERGENCY_PREFS in the prompt). Always include police. Set the "location" field to the town name so contacts can be grouped in the UI.
 - Set "website_label" on stops to "Book" for accommodation/tours that need reservations, "Reserve" for restaurants, "Website" for general info, or omit for null
-- Set "cost" on eating items to estimated cost per person using the local currency symbol (e.g. "~£15pp", "~$25pp CAD", "€30-40pp")
+
 - Mark 1-2 days as "highlight": true — the most special or scenic day(s) of the trip (shown in gold in the app)`
 
 export function buildTripPrompt(form: IntakeForm): string {
@@ -44,7 +44,7 @@ DATES: ${form.start_date} to ${form.end_date} (${days} days)
 TRAVELLERS: ${form.num_travellers}
 INTERESTS: ${form.interests.length ? form.interests.join(', ') : 'general sightseeing'}
 ACCOMMODATION: ${form.accommodation_style}
-BUDGET: ${form.budget_per_day_gbp} (in local destination currency)/day per person
+BUDGET_STYLE: £${form.budget_per_day_gbp}/day — use this only to calibrate the quality of hotels, restaurants and activities suggested; do NOT include any cost or price estimates in the output
 MAX DRIVING: ${form.driving_max_hours}h/day
 PREFERRED CHECK-IN: ${checkIn} (use this time for all hotel check_in fields)
 PREFERRED CHECK-OUT: ${checkOut} (use this time for all hotel check_out fields)
@@ -104,8 +104,7 @@ Output exactly this JSON structure:
           "address": "<address>",
           "website": "<https:// url or null>",
           "booking_required": <true|false>,
-          "suggested": <true for optional, false for recommended>,
-          "cost": "<estimated cost per person e.g. '~£15pp', 'Free', or null>"
+          "suggested": <true for optional, false for recommended>
         }
       ],
       "notes": "<general day tips or null>",
