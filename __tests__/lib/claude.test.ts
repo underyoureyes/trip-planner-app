@@ -63,9 +63,9 @@ describe('buildTripPrompt', () => {
     expect(prompt).toContain('castles, whisky')
   })
 
-  it('falls back to general sightseeing when no interests', () => {
+  it('uses none and no-sightseeing instruction when no interests selected', () => {
     const prompt = buildTripPrompt({ ...sampleForm, interests: [] })
-    expect(prompt).toContain('general sightseeing')
+    expect(prompt).toContain('none — do NOT add')
   })
 
   it('includes must_include when provided', () => {

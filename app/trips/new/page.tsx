@@ -351,8 +351,8 @@ export default function NewTripPage() {
           </div>
         </div>
 
-        {/* ── Hotel preferences ────────────────────────────────────────── */}
-        <div className="card space-y-4">
+        {/* ── Hotel preferences — hidden for camping ────────────────────── */}
+        {form.accommodation_style !== 'camping' && <div className="card space-y-4">
           <h2 className="font-semibold text-gray-900 text-base">🏨 Hotel preferences</h2>
           <p className="text-sm text-gray-500 -mt-2">Claude will use these times for all accommodation</p>
           <div className="grid grid-cols-2 gap-3">
@@ -371,7 +371,7 @@ export default function NewTripPage() {
               <p className="text-xs text-gray-400 mt-1">Default: 10:00</p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* ── Interests ────────────────────────────────────────────────── */}
         <div className="card space-y-3">
@@ -395,7 +395,7 @@ export default function NewTripPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Accommodation style</label>
             <div className="grid grid-cols-2 gap-2">
-              {([['budget', '🏕️ Budget'], ['mid', '🏨 Mid-range'], ['luxury', '🏰 Luxury'], ['mix', '🎲 Mix it up']] as const).map(([val, label]) => (
+              {([['budget', '🏕️ Budget'], ['mid', '🏨 Mid-range'], ['luxury', '🏰 Luxury'], ['mix', '🎲 Mix it up'], ['camping', '⛺ Camping']] as const).map(([val, label]) => (
                 <button key={val} type="button" onClick={() => setForm(f => ({ ...f, accommodation_style: val }))}
                   className={`py-2.5 px-3 rounded-xl border-2 text-sm font-medium transition-colors ${
                     form.accommodation_style === val ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 bg-white text-gray-700'

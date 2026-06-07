@@ -16,8 +16,11 @@ CRITICAL RULES:
 - Realistic drive times (not Google Maps "no traffic" estimates)
 - All website URLs must be real https:// links or null — no invented URLs
 - Hotel stops MUST include check_in and check_out times matching the traveller's preferences
+- CAMPING: if accommodation_style is "camping", use type "camping" for overnight stops (NOT "hotel"). Do NOT add check_in/check_out. Use the campsite name and address. Never generate hotel stops on a camping trip.
+- FERRY: use type "ferry" for ferry crossings. Include the ferry operator name, route (e.g. "Portsmouth to Caen"), and departure time in the notes.
 - Mark genuinely optional bonus stops with "suggested": true — these are extras the user may skip
-- Required stops (hotel, fuel, must-visit places) must have "suggested": false or omit the field
+- Required stops (hotel, camping, ferry, fuel, must-visit places) must have "suggested": false or omit the field
+- STRICT: if INTERESTS is "none" or the user says no sightseeing / no places of interest, do NOT add any sightseeing, viewpoint, castle, museum, distillery or activity stops
 - Mark stops that explicitly welcome dogs with "dog_friendly": true (beaches, parks, pubs, dog-friendly cafes)
 - For each day set "activity_badges" to 1-3 emoji that characterise the day (e.g. ["🏰","🌿"] for a heritage/nature day)
 - Estimate "steps" (integer) and "walking_km" (number) per day based on planned activities
@@ -42,12 +45,12 @@ FROM: ${form.origin}
 TO: ${form.destination}
 DATES: ${form.start_date} to ${form.end_date} (${days} days)
 TRAVELLERS: ${form.num_travellers}
-INTERESTS: ${form.interests.length ? form.interests.join(', ') : 'general sightseeing'}
-ACCOMMODATION: ${form.accommodation_style}
-BUDGET_STYLE: £${form.budget_per_day_gbp}/day — use this only to calibrate the quality of hotels, restaurants and activities suggested; do NOT include any cost or price estimates in the output
+INTERESTS: ${form.interests.length ? form.interests.join(', ') : 'none — do NOT add sightseeing, viewpoint, castle, museum, distillery or activity stops'}
+ACCOMMODATION: ${form.accommodation_style}${form.accommodation_style === 'camping' ? ' — use type "camping" for overnight stops, never "hotel"' : ''}
+BUDGET_STYLE: £${form.budget_per_day_gbp}/day — use this only to calibrate the quality of accommodation and restaurants suggested; do NOT include any cost or price estimates in the output
 MAX DRIVING: ${form.driving_max_hours}h/day
-PREFERRED CHECK-IN: ${checkIn} (use this time for all hotel check_in fields)
-PREFERRED CHECK-OUT: ${checkOut} (use this time for all hotel check_out fields)
+${form.accommodation_style !== 'camping' ? `PREFERRED CHECK-IN: ${checkIn} (use this time for all hotel check_in fields)
+PREFERRED CHECK-OUT: ${checkOut} (use this time for all hotel check_out fields)` : 'ACCOMMODATION: camping in tents — no hotel stops, no check-in/check-out times'}
 ${form.pets ? `PETS: ${form.pets} — mark dog-friendly stops, always include nearest vet for each overnight location` : ''}
 ${form.emergency_prefs && form.emergency_prefs.length ? `EMERGENCY_PREFS: For each overnight town include these contact types: ${form.emergency_prefs.join(', ')}. Always add police too.` : 'EMERGENCY_PREFS: For each overnight town include a_and_e (A&E hospital) and police.'}
 ${form.must_include ? `MUST INCLUDE: ${form.must_include}` : ''}
@@ -55,9 +58,9 @@ ${form.notes ? `NOTES: ${form.notes}` : ''}
 
 For each day include:
 - All driving legs as stops with type "drive"
-- The hotel/accommodation as a stop with type "hotel"
-- 2-4 main activities (suggested: false)
-- 1-2 optional bonus activities the user can skip (suggested: true)
+- Ferry crossings as stops with type "ferry"
+- The overnight accommodation as a stop — type "hotel" for hotels, type "camping" for campsites/tents
+- Only add activity/sightseeing stops if INTERESTS is not "none"
 - Eating suggestions for breakfast, lunch and dinner
 
 Output exactly this JSON structure:
@@ -79,7 +82,7 @@ Output exactly this JSON structure:
       "stops": [
         {
           "name": "<stop name>",
-          "type": "<drive|hotel|sightseeing|activity|viewpoint|town|restaurant|cafe|pub|beach|nature|castle|distillery|museum|fuel|other>",
+          "type": "<drive|hotel|camping|ferry|sightseeing|activity|viewpoint|town|restaurant|cafe|pub|beach|nature|castle|distillery|museum|fuel|other>",
           "description": "<1-2 sentences>",
           "address": "<full address or town, region>",
           "phone": "<phone number or null>",

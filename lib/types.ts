@@ -8,7 +8,7 @@ export interface IntakeForm {
   end_date: string
   num_travellers: number
   interests: string[]
-  accommodation_style: 'budget' | 'mid' | 'luxury' | 'mix'
+  accommodation_style: 'budget' | 'mid' | 'luxury' | 'mix' | 'camping'
   budget_per_day_gbp: number
   driving_max_hours: number
   preferred_check_in?: string    // e.g. "15:00"
@@ -22,7 +22,8 @@ export interface IntakeForm {
 // ── Trip Stop & Day ───────────────────────────────────────────────────────────
 
 export type StopType =
-  | 'drive' | 'hotel' | 'sightseeing' | 'activity' | 'viewpoint'
+  | 'drive' | 'hotel' | 'camping' | 'ferry'
+  | 'sightseeing' | 'activity' | 'viewpoint'
   | 'town' | 'restaurant' | 'cafe' | 'pub' | 'beach' | 'nature'
   | 'castle' | 'distillery' | 'museum' | 'fuel' | 'other'
 

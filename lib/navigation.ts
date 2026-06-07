@@ -43,6 +43,9 @@ export function formatDriveTime(minutes: number): string {
 
 export const STOP_TYPE_ICONS: Record<string, string> = {
   sightseeing: '🏛️',
+  hotel: '🛏️',
+  camping: '⛺',
+  ferry: '⛴️',
   dog_walk: '🐾',
   fuel: '⛽',
   golf: '⛳',
@@ -52,6 +55,10 @@ export const STOP_TYPE_ICONS: Record<string, string> = {
   cycling: '🚴',
   beach: '🏖️',
   restaurant: '🍽️',
+  cafe: '☕',
+  pub: '🍺',
+  nature: '🌿',
+  museum: '🏛️',
   accommodation: '🛏️',
   activity: '🎯',
   viewpoint: '📸',
