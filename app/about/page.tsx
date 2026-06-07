@@ -19,11 +19,6 @@ const features = [
     desc: 'Photograph your hotel or activity booking and Claude extracts the details — check-in times, booking references and addresses — directly into your trip.',
   },
   {
-    icon: '📊',
-    title: 'Import from spreadsheet',
-    desc: 'Upload a .xlsx or .csv from OneDrive or your device. Claude reads your existing bookings and pre-fills the trip form, shifting any past dates forward automatically.',
-  },
-  {
     icon: '🗺️',
     title: 'Day-by-day navigation',
     desc: 'Every stop has a Navigate button that opens Google Maps or Apple Maps. A full route card shows all hotels and per-day driving routes.',
@@ -52,11 +47,10 @@ const features = [
 
 const stack = [
   { name: 'Next.js 14', role: 'App Router, React Server Components, API routes', color: '#000' },
-  { name: 'Claude API', role: 'Trip generation, stop suggestions, booking vision, spreadsheet analysis', color: '#d97706' },
+  { name: 'Claude API', role: 'Trip generation, stop suggestions, booking confirmation vision', color: '#d97706' },
   { name: 'Supabase', role: 'Postgres database, row-level security auth, real-time', color: '#3ecf8e' },
   { name: 'TypeScript', role: 'Strict-mode end-to-end types', color: '#3178c6' },
   { name: 'Tailwind CSS', role: 'Mobile-first design with custom brand tokens', color: '#38bdf8' },
-  { name: 'SheetJS', role: 'Client-side .xlsx / .csv parsing — no file upload needed', color: '#21a366' },
   { name: 'Vercel', role: 'Edge deployment, automatic HTTPS, CI/CD from GitHub', color: '#000' },
 ]
 
@@ -111,7 +105,7 @@ export default async function AboutPage({ searchParams }: { searchParams: { next
           <p className="text-[11px] font-bold tracking-[2px] uppercase text-soft mb-4">How it works</p>
           <div className="bg-white rounded-card px-5 py-5 space-y-5" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.08)' }}>
             {[
-              ['1', '#2563a8', 'Describe your trip', 'Type, speak, scan bookings, or import a spreadsheet. Tell Claude what you love — castles, distilleries, dog-friendly pubs, whatever.'],
+              ['1', '#2563a8', 'Describe your trip', 'Type, speak, or scan booking confirmations. Tell Claude what you love — castles, distilleries, dog-friendly pubs, whatever.'],
               ['2', '#6b4f7a', 'Claude builds the itinerary', 'Claude generates a full day-by-day plan: drive legs, overnight stops, activities, eating spots and local tips tailored to your interests.'],
               ['3', '#2d6a4f', 'Navigate & share', 'Each stop has a Navigate button for turn-by-turn directions. Share a link so anyone on the trip can follow along.'],
             ].map(([num, color, title, desc]) => (
