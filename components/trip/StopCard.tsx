@@ -77,7 +77,7 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
 
   const isDrive      = stop.type === 'drive'
   const isHotel      = stop.type === 'hotel'
-  const canSwipe     = isOwner && !isDrive
+  const canSwipe     = isOwner && !!onDelete
   const icon         = ICONS[stop.type] || '📍'
   const websiteLabel = stop.website_label || 'Website'
   const navigateUrl  = !isDrive

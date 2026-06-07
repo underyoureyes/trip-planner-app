@@ -111,18 +111,28 @@ describe('StopCard', () => {
   })
 
   describe('delete button', () => {
-    it('shows × button for owner on non-drive stop', () => {
-      render(<StopCard stop={sightseeing} index={0} isOwner />)
+    it('shows × button for owner when onDelete provided', () => {
+      render(<StopCard stop={sightseeing} index={0} isOwner onDelete={vi.fn()} />)
+      expect(screen.getByText('×')).toBeInTheDocument()
+    })
+
+    it('shows × button for owner on drive stop when onDelete provided', () => {
+      render(<StopCard stop={driveStop} index={0} isOwner onDelete={vi.fn()} />)
       expect(screen.getByText('×')).toBeInTheDocument()
     })
 
     it('does not show × button when not owner', () => {
-      render(<StopCard stop={sightseeing} index={0} isOwner={false} />)
+      render(<StopCard stop={sightseeing} index={0} isOwner={false} onDelete={vi.fn()} />)
+      expect(screen.queryByText('×')).not.toBeInTheDocument()
+    })
+
+    it('does not show × button when onDelete not provided', () => {
+      render(<StopCard stop={sightseeing} index={0} isOwner />)
       expect(screen.queryByText('×')).not.toBeInTheDocument()
     })
 
     it('opens delete panel when × is clicked', () => {
-      render(<StopCard stop={sightseeing} index={0} isOwner />)
+      render(<StopCard stop={sightseeing} index={0} isOwner onDelete={vi.fn()} />)
       fireEvent.click(screen.getByText('×'))
       expect(screen.getByText('Delete')).toBeInTheDocument()
     })
