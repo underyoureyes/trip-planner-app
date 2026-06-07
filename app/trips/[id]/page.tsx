@@ -519,6 +519,7 @@ export default function TripViewPage() {
   const [generateLog,  setGenerateLog]  = useState('')
   const [error,        setError]        = useState('')
   const [saving,       setSaving]       = useState(false)
+  const [deleting,     setDeleting]     = useState(false)
   const [addSheetOpen,     setAddSheetOpen]     = useState(false)
   const [showDeletedSheet, setShowDeletedSheet] = useState(false)
   const [showRouteCard,    setShowRouteCard]    = useState(false)
@@ -617,6 +618,12 @@ export default function TripViewPage() {
     }
     setGenerating(false)
     loadTrip()
+  }
+
+  async function handleDeleteTrip() {
+    setDeleting(true)
+    await fetch(`/api/trips/${id}`, { method: 'DELETE' }).catch(() => {})
+    router.push('/trips')
   }
 
   const saveData = useCallback(async (data: TripData) => {
@@ -856,7 +863,15 @@ export default function TripViewPage() {
           <h2 className="text-xl font-semibold text-ink mb-2">Generation failed</h2>
           <p className="text-soft text-sm mb-2">{error || 'Something went wrong. Please try again.'}</p>
           {error && <p className="text-[11px] text-soft mb-5">Check your Claude API key in Settings, then retry.</p>}
-          <button onClick={() => { startedRef.current = false; startGeneration() }} className="btn-primary">Retry</button>
+          <div className="flex flex-col gap-3">
+            <button onClick={() => { startedRef.current = false; startGeneration() }} className="btn-primary">Retry</button>
+            <button
+              onClick={handleDeleteTrip}
+              disabled={deleting}
+              className="text-sm font-medium disabled:opacity-50"
+              style={{ color: '#dc2626' }}
+            >{deleting ? 'Deleting…' : 'Delete trip'}</button>
+          </div>
         </div>
       </div>
     </div>
