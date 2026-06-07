@@ -815,7 +815,12 @@ export default function TripViewPage() {
   }
 
   useEffect(() => {
-    loadTrip().then(t => { if (t?.status === 'draft' && !startedRef.current) { startedRef.current = true; startGeneration() } })
+    loadTrip().then(t => {
+      if ((t?.status === 'draft' || t?.status === 'generating') && !startedRef.current) {
+        startedRef.current = true
+        startGeneration()
+      }
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -845,6 +850,12 @@ export default function TripViewPage() {
         <p className="text-[#93c5fd] text-sm mb-6">Claude is crafting your itinerary</p>
         {generateLog && <div className="bg-white/10 border border-white/20 rounded-2xl p-4 text-sm text-[#e0f2fe] max-w-xs mx-auto">{generateLog}</div>}
         {error      && <div className="bg-red-500/20 border border-red-400/30 rounded-2xl p-4 text-sm text-red-200 mt-3 max-w-xs mx-auto">{error}</div>}
+        {!generating && !error && (
+          <button
+            onClick={() => { startedRef.current = false; startGeneration() }}
+            className="mt-6 text-sm font-semibold text-white/70 underline underline-offset-2 active:text-white"
+          >Stuck? Tap to retry</button>
+        )}
       </div>
     </div>
   )
