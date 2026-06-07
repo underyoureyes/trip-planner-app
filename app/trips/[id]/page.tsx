@@ -573,9 +573,24 @@ export default function TripViewPage() {
 
   async function startGeneration() {
     setGenerating(true); setGenerateLog('Starting…'); setError('')
-    const res = await fetch(`/api/trips/${id}/generate`, { method: 'POST' })
-    if (!res.ok || !res.body) { setError('Failed to start generation'); setGenerating(false); return }
+    let res: Response
+    try {
+      res = await fetch(`/api/trips/${id}/generate`, { method: 'POST' })
+    } catch {
+      setError('Connection failed — please check your internet and retry')
+      setGenerating(false)
+      return
+    }
+    if (!res.ok || !res.body) {
+      const isTimeout = res.status === 504 || res.status === 524
+      setError(isTimeout
+        ? 'Generation timed out — the trip took too long to plan. Try a shorter trip or retry.'
+        : 'Failed to start generation')
+      setGenerating(false)
+      return
+    }
     const reader = res.body.getReader(); const decoder = new TextDecoder(); let buffer = ''
+    let receivedDone = false
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -584,7 +599,7 @@ export default function TripViewPage() {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         const payload = line.slice(6)
-        if (payload === '[DONE]') { setGenerating(false); loadTrip(); return }
+        if (payload === '[DONE]') { receivedDone = true; setGenerating(false); loadTrip(); return }
         try {
           const evt = JSON.parse(payload)
           if (evt.type === 'progress') setGenerateLog(evt.message)
@@ -592,7 +607,16 @@ export default function TripViewPage() {
         } catch { /* partial chunk */ }
       }
     }
-    setGenerating(false); loadTrip()
+    if (!receivedDone) {
+      setError('Generation timed out — the server took too long. Try reducing the trip duration or retry.')
+      await fetch(`/api/trips/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'error' }),
+      }).catch(() => { /* non-fatal */ })
+    }
+    setGenerating(false)
+    loadTrip()
   }
 
   const saveData = useCallback(async (data: TripData) => {
