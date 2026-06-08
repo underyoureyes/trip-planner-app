@@ -888,14 +888,15 @@ export default function TripViewPage() {
       .filter(s => s.type !== 'drive' && (s.address || s.name))
       .map(s => (s.address || s.name) as string)
 
-    if (stops.length === 0) {
-      // Fall back to navigating to the overnight location only
-      if (!day.overnight_location) return null
-      const enc = encodeURIComponent(day.overnight_location)
-      return { google: `comgooglemaps://?daddr=${enc}&directionsmode=driving`, apple: `maps://maps.apple.com/?daddr=${enc}&dirflg=d`, web: `https://www.google.com/maps/dir/?api=1&destination=${enc}&travelmode=driving` }
+    // Always append overnight_location as the final destination.
+    // This captures the last drive leg (e.g. "drive home to Bromley") which
+    // has no separate non-drive stop in the stops list.
+    if (day.overnight_location && stops[stops.length - 1] !== day.overnight_location) {
+      stops.push(day.overnight_location)
     }
 
-    // Prepend the day's starting location so Google Maps knows the origin
+    if (stops.length === 0) return null
+
     const wpts = startLocation ? [startLocation, ...stops] : stops
     return buildRouteDayUrl(wpts)
   }
