@@ -11,6 +11,22 @@ import StopCard from '@/components/trip/StopCard'
 import AddStopSheet from '@/components/trip/AddStopSheet'
 import DeletedStopsSheet, { type DeletedEntry } from '@/components/trip/DeletedStopsSheet'
 import TripRouteCard from '@/components/trip/TripRouteCard'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -495,6 +511,47 @@ function InfoPanel({
   )
 }
 
+// ── Sortable stop card ────────────────────────────────────────────────────────
+
+function SortableStopCard({
+  sortId, isOwner, stop, index, isFirst, isLast, tripId, onDelete, onUpdate,
+}: {
+  sortId: string
+  isOwner: boolean
+  stop: Stop
+  index: number
+  isFirst: boolean
+  isLast: boolean
+  tripId: string
+  onDelete: () => void
+  onUpdate: (patch: Partial<Stop>) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortId })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        ...(isDragging ? { opacity: 0.5, zIndex: 50, position: 'relative' as const } : {}),
+      }}
+    >
+      <StopCard
+        stop={stop}
+        index={index}
+        isFirst={isFirst}
+        isLast={isLast}
+        isOwner={isOwner}
+        tripId={tripId}
+        onDelete={onDelete}
+        onUpdate={onUpdate}
+        dragHandleListeners={isOwner ? listeners as unknown as Record<string, unknown> : undefined}
+        dragHandleAttributes={isOwner ? attributes as unknown as Record<string, unknown> : undefined}
+      />
+    </div>
+  )
+}
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const HERO_GRADIENT = 'linear-gradient(160deg, #0d0d1f 0%, #1a1a2e 55%, #1e3a5f 100%)'
@@ -531,6 +588,11 @@ export default function TripViewPage() {
   const [generatingContacts, setGeneratingContacts] = useState(false)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
+  )
 
   async function loadTrip() {
     const res = await fetch(`/api/trips/${id}`)
@@ -735,6 +797,18 @@ export default function TripViewPage() {
   const handleUpdateContacts = useCallback(async (contacts: EmergencyContact[]) => {
     if (!tripData) return
     const updated: TripData = { ...tripData, emergency_contacts: contacts }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
+  const handleReorderStops = useCallback(async (dayIndex: number, oldIndex: number, newIndex: number) => {
+    if (!tripData || oldIndex === newIndex) return
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) =>
+        di !== dayIndex ? day : { ...day, stops: arrayMove(day.stops, oldIndex, newIndex) }
+      ),
+    }
     setTripData(updated)
     await saveData(updated)
   }, [tripData, saveData])
@@ -1088,21 +1162,37 @@ export default function TripViewPage() {
                   </div>
                 )}
               </div>
-              <div className="pt-1 pb-1">
-                {currentDay.stops.map((stop, i) => (
-                  <StopCard
-                    key={`${activeDay}-${i}`}
-                    stop={stop}
-                    index={i}
-                    isFirst={i === 0}
-                    isLast={i === currentDay.stops.length - 1}
-                    isOwner={isOwner}
-                    tripId={id}
-                    onDelete={() => handleDeleteStop(activeDay, i)}
-                    onUpdate={(patch) => handleUpdateStop(activeDay, i, patch)}
-                  />
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event
+                  if (!over || active.id === over.id) return
+                  handleReorderStops(activeDay, Number(active.id), Number(over.id))
+                }}
+              >
+                <SortableContext
+                  items={currentDay.stops.map((_, i) => String(i))}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="pt-1 pb-1">
+                    {currentDay.stops.map((stop, i) => (
+                      <SortableStopCard
+                        key={`${activeDay}-${i}-${stop.name}`}
+                        sortId={String(i)}
+                        stop={stop}
+                        index={i}
+                        isFirst={i === 0}
+                        isLast={i === currentDay.stops.length - 1}
+                        isOwner={isOwner}
+                        tripId={id}
+                        onDelete={() => handleDeleteStop(activeDay, i)}
+                        onUpdate={(patch) => handleUpdateStop(activeDay, i, patch)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 

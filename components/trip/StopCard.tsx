@@ -11,6 +11,8 @@ interface Props {
   onUpdate?: (patch: Partial<Stop>) => void
   isOwner?: boolean
   tripId?: string
+  dragHandleListeners?: Record<string, unknown>
+  dragHandleAttributes?: Record<string, unknown>
 }
 
 function dotClass(type: string, isFirst: boolean, isLast: boolean) {
@@ -61,7 +63,7 @@ function compressImage(file: File): Promise<string> {
   })
 }
 
-export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, onUpdate, isOwner=false, tripId }: Props) {
+export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, onUpdate, isOwner=false, tripId, dragHandleListeners, dragHandleAttributes }: Props) {
   const [dragX,          setDragX]          = useState(0)
   const [isDragging,     setIsDragging]     = useState(false)
   const [swipeOpen,      setSwipeOpen]      = useState(false)
@@ -217,7 +219,7 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
           {/* Content */}
           <div className={`flex-1 py-3 pr-4 ${!isLast ? 'border-b border-line' : ''}`}>
 
-            {/* Name + × button */}
+            {/* Name + action buttons */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 {(stop.suggested || stop.dog_friendly) && (
@@ -228,13 +230,33 @@ export default function StopCard({ stop, isFirst=false, isLast=false, onDelete, 
                 )}
                 <p className="font-semibold text-[15px] text-ink leading-snug">{stop.name}</p>
               </div>
-              {canSwipe && (
-                <button
-                  onPointerDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); setSwipeOpen(true) }}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-xs bg-gray-100 text-gray-400 active:bg-red-100 active:text-red-500 flex-shrink-0 mt-0.5"
-                >×</button>
-              )}
+              <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                {dragHandleListeners && (
+                  <button
+                    {...(dragHandleAttributes as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                    {...(dragHandleListeners as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                    onPointerDown={e => { e.stopPropagation(); (dragHandleListeners as Record<string, (e: React.PointerEvent) => void>).onPointerDown?.(e) }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-gray-100 text-gray-400 active:bg-blue-100 active:text-blue-500 flex-shrink-0 touch-none cursor-grab active:cursor-grabbing select-none"
+                    title="Drag to reorder"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="2" y="2" width="3" height="3" rx="1"/>
+                      <rect x="9" y="2" width="3" height="3" rx="1"/>
+                      <rect x="2" y="6" width="3" height="3" rx="1"/>
+                      <rect x="9" y="6" width="3" height="3" rx="1"/>
+                      <rect x="2" y="10" width="3" height="3" rx="1"/>
+                      <rect x="9" y="10" width="3" height="3" rx="1"/>
+                    </svg>
+                  </button>
+                )}
+                {canSwipe && (
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); setSwipeOpen(true) }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs bg-gray-100 text-gray-400 active:bg-red-100 active:text-red-500 flex-shrink-0"
+                  >×</button>
+                )}
+              </div>
             </div>
 
             {/* Drive stats */}
