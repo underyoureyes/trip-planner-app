@@ -17,7 +17,7 @@ CRITICAL RULES:
 - All website URLs must be real https:// links or null — no invented URLs
 - Hotel stops MUST include check_in and check_out times matching the traveller's preferences
 - CAMPING: if accommodation_style is "camping", use type "camping" for overnight stops (NOT "hotel"). Do NOT add check_in/check_out. Use the campsite name and address. Never generate hotel stops on a camping trip.
-- FERRY: use type "ferry" for ferry crossings. Include the ferry operator name, route (e.g. "Portsmouth to Caen"), and departure time in the notes.
+- FERRY: use type "ferry" for ALL channel crossings — including Eurotunnel Le Shuttle. Include the operator, the exact route for THAT leg (e.g. "Portsmouth to Caen" outbound, "Calais to Folkestone" return, "Folkestone to Calais via Eurotunnel"), and departure time in the notes. CRITICAL: outbound and return crossings use different ports — never reuse the outbound ferry port for the return leg if the user specified a different crossing.
 - Mark genuinely optional bonus stops with "suggested": true — these are extras the user may skip
 - Required stops (hotel, camping, ferry, fuel, must-visit places) must have "suggested": false or omit the field
 - STRICT: if INTERESTS is "none" or the user says no sightseeing / no places of interest, do NOT add any sightseeing, viewpoint, castle, museum, distillery or activity stops

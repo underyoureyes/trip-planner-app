@@ -23,13 +23,15 @@ export function buildRouteDayUrl(waypoints: string[]): {
   const valid = waypoints.filter(Boolean)
   if (valid.length === 0) return buildNavigateUrl('')
   const [start, ...rest] = valid
+  if (rest.length === 0) return buildNavigateUrl(start)
 
-  const googleWaypoints = valid.map(encodeURIComponent).join('+to:')
-  const appleWaypoints  = valid.map(encodeURIComponent).join('+to:')
+  // saddr = origin; daddr = remaining stops joined with +to: (NOT including start again)
+  const googleDest = rest.map(encodeURIComponent).join('+to:')
+  const appleDest  = rest.map(encodeURIComponent).join('+to:')
 
   return {
-    google: `comgooglemaps://?saddr=${encodeURIComponent(start)}&daddr=${googleWaypoints}&directionsmode=driving`,
-    apple: `maps://maps.apple.com/?saddr=${encodeURIComponent(start)}&daddr=${appleWaypoints}`,
+    google: `comgooglemaps://?saddr=${encodeURIComponent(start)}&daddr=${googleDest}&directionsmode=driving`,
+    apple: `maps://maps.apple.com/?saddr=${encodeURIComponent(start)}&daddr=${appleDest}&dirflg=d`,
     web: `https://www.google.com/maps/dir/${valid.map(encodeURIComponent).join('/')}`,
   }
 }
