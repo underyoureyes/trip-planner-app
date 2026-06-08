@@ -586,6 +586,8 @@ export default function TripViewPage() {
   const [deletedHistory,     setDeletedHistory]     = useState<DeletedEntry[]>([])
   const [lastDeleted,        setLastDeleted]         = useState<{ stop: Stop; dayIdx: number; stopIdx: number } | null>(null)
   const [generatingContacts, setGeneratingContacts] = useState(false)
+  const [editingOvernight,   setEditingOvernight]   = useState(false)
+  const [overnightDraft,     setOvernightDraft]     = useState('')
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
 
@@ -801,6 +803,16 @@ export default function TripViewPage() {
     await saveData(updated)
   }, [tripData, saveData])
 
+  const handleUpdateDayField = useCallback(async (dayIndex: number, patch: Partial<Day>) => {
+    if (!tripData) return
+    const updated: TripData = {
+      ...tripData,
+      days: tripData.days.map((day, di) => di !== dayIndex ? day : { ...day, ...patch }),
+    }
+    setTripData(updated)
+    await saveData(updated)
+  }, [tripData, saveData])
+
   const handleReorderStops = useCallback(async (dayIndex: number, oldIndex: number, newIndex: number) => {
     if (!tripData || oldIndex === newIndex) return
     const updated: TripData = {
@@ -904,6 +916,8 @@ export default function TripViewPage() {
       if (raw) setDeletedHistory(JSON.parse(raw) as DeletedEntry[])
     } catch { /* ignore */ }
   }, [id])
+
+  useEffect(() => { setEditingOvernight(false) }, [activeDay])
 
   // ── Loading ───────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -1062,8 +1076,37 @@ export default function TripViewPage() {
             </p>
             <h2 className="font-serif text-[20px] text-white leading-snug mb-3">{currentDay.title || `Day ${currentDay.day_number}`}</h2>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {currentDay.overnight_location && (
-                <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🌙 <span className="text-white font-semibold">{currentDay.overnight_location}</span></div>
+              {currentDay.overnight_location !== undefined && (
+                isOwner && editingOvernight ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#bfdbfe] flex-shrink-0">🌙</span>
+                    <input
+                      type="text"
+                      value={overnightDraft}
+                      onChange={e => setOvernightDraft(e.target.value)}
+                      onBlur={() => {
+                        const trimmed = overnightDraft.trim()
+                        if (trimmed !== currentDay.overnight_location) handleUpdateDayField(activeDay, { overnight_location: trimmed })
+                        setEditingOvernight(false)
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { handleUpdateDayField(activeDay, { overnight_location: overnightDraft.trim() }); setEditingOvernight(false) }
+                        if (e.key === 'Escape') setEditingOvernight(false)
+                      }}
+                      autoFocus
+                      className="text-[13px] font-semibold rounded-lg px-2 py-0.5 outline-none"
+                      style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', width: 180 }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { if (!isOwner) return; setOvernightDraft(currentDay.overnight_location || ''); setEditingOvernight(true) }}
+                    className={`flex items-center gap-1.5 text-[13px] text-[#bfdbfe] ${isOwner ? 'active:opacity-70' : ''}`}
+                  >
+                    🌙 <span className="text-white font-semibold">{currentDay.overnight_location}</span>
+                    {isOwner && <span className="text-[10px] ml-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>✏</span>}
+                  </button>
+                )
               )}
               {driveMinutes > 0 && (
                 <div className="flex items-center gap-1.5 text-[13px] text-[#bfdbfe]">🚗 <span className="text-white font-semibold">{Math.floor(driveMinutes/60)}h {driveMinutes%60}m{driveKm > 0 ? ` · ${Math.round(driveKm)} km` : ''}</span></div>
