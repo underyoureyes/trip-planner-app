@@ -1149,19 +1149,16 @@ export default function TripViewPage() {
           {/* Weather button */}
           {currentDay.overnight_location && (() => {
             const weatherTown = currentDay.overnight_location.split(',')[0].replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, '').trim()
-            const dayLabel = currentDay.date
-              ? new Date(currentDay.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-              : ''
             return (
             <a
-              href={`https://wttr.in/${encodeURIComponent(weatherTown)}?m`}
+              href={`https://www.google.com/search?q=weather+${encodeURIComponent(weatherTown)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full rounded-card py-3 px-5 mb-3.5 no-underline text-[13px] font-semibold"
               style={{ background: '#dbeafe', color: '#2563a8', border: '1px solid rgba(37,99,168,0.2)' }}
             >
               <span>🌤</span>
-              <span>Weather for {weatherTown}{dayLabel ? ` · ${dayLabel}` : ''}</span>
+              <span>Weather forecast for {weatherTown}</span>
             </a>
             )
           })()}
