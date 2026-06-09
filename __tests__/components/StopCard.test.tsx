@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import StopCard from '@/components/trip/StopCard'
 import type { Stop } from '@/lib/types'
@@ -143,6 +143,196 @@ describe('StopCard', () => {
       fireEvent.click(screen.getByText('×'))
       fireEvent.click(screen.getByText('Delete'))
       expect(onDelete).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('hotel stop — booking ref visibility', () => {
+    const hotel: Stop = {
+      name: 'The Balmoral',
+      type: 'hotel',
+      address: '1 Princes St, Edinburgh',
+      booking_ref: 'HOTEL-REF-999',
+    }
+
+    it('shows booking ref for owner on hotel stop', () => {
+      render(<StopCard stop={hotel} index={0} isOwner />)
+      expect(screen.getByText(/HOTEL-REF-999/)).toBeInTheDocument()
+    })
+
+    it('masks booking ref for non-owner on hotel stop', () => {
+      render(<StopCard stop={hotel} index={0} isOwner={false} />)
+      expect(screen.queryByText(/HOTEL-REF-999/)).not.toBeInTheDocument()
+      expect(screen.getByText(/owner only/)).toBeInTheDocument()
+    })
+  })
+
+  describe('hotel notes visibility', () => {
+    const hotel: Stop = {
+      name: 'Cozy Cottage',
+      type: 'hotel',
+      notes: 'Key code: 1234',
+    }
+
+    it('shows notes for owner on hotel stop', () => {
+      render(<StopCard stop={hotel} index={0} isOwner />)
+      expect(screen.getByText('Key code: 1234')).toBeInTheDocument()
+    })
+
+    it('hides notes for non-owner on hotel stop', () => {
+      render(<StopCard stop={hotel} index={0} isOwner={false} />)
+      expect(screen.queryByText('Key code: 1234')).not.toBeInTheDocument()
+      expect(screen.getByText(/visible to trip owner only/)).toBeInTheDocument()
+    })
+  })
+
+  describe('hotel cancellation policy', () => {
+    it('shows pay_at_hotel badge', () => {
+      const stop: Stop = { ...hotelStop, pay_at_hotel: true }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/Pay at hotel/)).toBeInTheDocument()
+    })
+
+    it('shows cancellation policy badge', () => {
+      const stop: Stop = { ...hotelStop, cancellation_policy: 'Free cancellation until 14 Jun' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/Free cancellation until 14 Jun/)).toBeInTheDocument()
+    })
+
+    it('shows non-refundable policy with lock icon', () => {
+      const stop: Stop = { ...hotelStop, cancellation_policy: 'Non-refundable' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/Non-refundable/)).toBeInTheDocument()
+    })
+
+    it('shows "Add booking policy" button for hotel owner with onUpdate', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={vi.fn()} />)
+      expect(screen.getByText(/Add booking policy/)).toBeInTheDocument()
+    })
+
+    it('shows "Edit" instead of "Add" when policy already set', () => {
+      const stop: Stop = { ...hotelStop, cancellation_policy: 'Free until 14 Jun' }
+      render(<StopCard stop={stop} index={0} isOwner onUpdate={vi.fn()} />)
+      expect(screen.getByText(/Edit booking policy/)).toBeInTheDocument()
+    })
+
+    it('opens policy editor when "Add booking policy" is clicked', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={vi.fn()} />)
+      fireEvent.click(screen.getByText(/Add booking policy/))
+      expect(screen.getByPlaceholderText(/Cancellation policy/)).toBeInTheDocument()
+    })
+
+    it('shows Save and Cancel buttons in policy editor', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={vi.fn()} />)
+      fireEvent.click(screen.getByText(/Add booking policy/))
+      expect(screen.getByText('Save')).toBeInTheDocument()
+      expect(screen.getByText('Cancel')).toBeInTheDocument()
+    })
+
+    it('closes policy editor when Cancel is clicked', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={vi.fn()} />)
+      fireEvent.click(screen.getByText(/Add booking policy/))
+      fireEvent.click(screen.getByText('Cancel'))
+      expect(screen.queryByPlaceholderText(/Cancellation policy/)).not.toBeInTheDocument()
+    })
+
+    it('calls onUpdate when Save is clicked', () => {
+      const onUpdate = vi.fn()
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={onUpdate} />)
+      fireEvent.click(screen.getByText(/Add booking policy/))
+      const input = screen.getByPlaceholderText(/Cancellation policy/)
+      fireEvent.change(input, { target: { value: 'Free until 30 Jun' } })
+      fireEvent.click(screen.getByText('Save'))
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ cancellation_policy: 'Free until 30 Jun' }),
+      )
+    })
+
+    it('toggles Pay at hotel in editor', () => {
+      const onUpdate = vi.fn()
+      render(<StopCard stop={hotelStop} index={0} isOwner onUpdate={onUpdate} />)
+      fireEvent.click(screen.getByText(/Add booking policy/))
+      // Click the toggle button
+      const toggleBtn = screen.getByRole('button', { name: '' })
+      // find the toggle (the first button inside the editor that isn't Save/Cancel)
+      const allButtons = screen.getAllByRole('button')
+      // Toggle is the round button — find by its type=button inside the editor
+      // Save & Cancel + the toggle; click the toggle
+      const toggles = allButtons.filter(b => b.className.includes('rounded-full') && !b.className.includes('bg-mist'))
+      if (toggles.length > 0) fireEvent.click(toggles[0])
+      fireEvent.click(screen.getByText('Save'))
+      expect(onUpdate).toHaveBeenCalled()
+    })
+
+    it('does not show policy editor for non-owners', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner={false} onUpdate={vi.fn()} />)
+      expect(screen.queryByText(/booking policy/)).not.toBeInTheDocument()
+    })
+
+    it('does not show policy editor without onUpdate', () => {
+      render(<StopCard stop={hotelStop} index={0} isOwner />)
+      expect(screen.queryByText(/booking policy/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('duration formatting', () => {
+    it('shows minutes for stops under 60 mins', () => {
+      const stop: Stop = { ...sightseeing, duration_mins: 45 }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/45m/)).toBeInTheDocument()
+    })
+
+    it('shows hours and minutes for stops over 60 mins', () => {
+      const stop: Stop = { ...sightseeing, duration_mins: 90 }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/1h 30m/)).toBeInTheDocument()
+    })
+  })
+
+  describe('drive time formatting', () => {
+    it('shows distance alongside drive time', () => {
+      const stop: Stop = { name: 'Drive', type: 'drive', drive_time_mins: 60, distance_km: 50 }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/50 km/)).toBeInTheDocument()
+    })
+
+    it('shows just hours and minutes when no distance set', () => {
+      const stop: Stop = { name: 'Drive', type: 'drive', drive_time_mins: 90 }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/1h 30m/)).toBeInTheDocument()
+    })
+  })
+
+  describe('website label', () => {
+    it('uses custom website_label when provided', () => {
+      const stop: Stop = { ...sightseeing, website: 'https://example.com', website_label: 'Book now' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/Book now/)).toBeInTheDocument()
+    })
+
+    it('falls back to "Website" when website_label is not set', () => {
+      const stop: Stop = { ...sightseeing, website: 'https://example.com' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText(/🌐 Website/)).toBeInTheDocument()
+    })
+  })
+
+  describe('stop icons', () => {
+    it('shows correct icon for restaurant stop', () => {
+      const stop: Stop = { name: 'Canteen', type: 'restaurant' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText('🍽️')).toBeInTheDocument()
+    })
+
+    it('shows correct icon for castle stop', () => {
+      const stop: Stop = { name: 'Urquhart Castle', type: 'castle' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText('🏰')).toBeInTheDocument()
+    })
+
+    it('shows fallback icon for unknown stop type', () => {
+      const stop: Stop = { name: 'Mystery', type: 'other' }
+      render(<StopCard stop={stop} index={0} />)
+      expect(screen.getByText('📍')).toBeInTheDocument()
     })
   })
 })
