@@ -1149,9 +1149,13 @@ export default function TripViewPage() {
           {/* Weather button */}
           {currentDay.overnight_location && (() => {
             const weatherTown = currentDay.overnight_location.split(',')[0].replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, '').trim()
+            const dateStr = currentDay.date
+              ? new Date(currentDay.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+              : ''
+            const weatherQuery = dateStr ? `weather ${weatherTown} ${dateStr}` : `weather ${weatherTown}`
             return (
             <a
-              href={`https://www.google.com/search?q=weather+${encodeURIComponent(weatherTown)}`}
+              href={`https://www.google.com/search?q=${encodeURIComponent(weatherQuery)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full rounded-card py-3 px-5 mb-3.5 no-underline text-[13px] font-semibold"
