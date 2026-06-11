@@ -588,6 +588,11 @@ export default function TripViewPage() {
   const [generatingContacts, setGeneratingContacts] = useState(false)
   const [editingOvernight,   setEditingOvernight]   = useState(false)
   const [overnightDraft,     setOvernightDraft]     = useState('')
+  const [textZoom, setTextZoom] = useState<1 | 1.15 | 1.3>(() => {
+    if (typeof window === 'undefined') return 1
+    const s = localStorage.getItem('trip-text-zoom')
+    return (s === '1.15' ? 1.15 : s === '1.3' ? 1.3 : 1) as 1 | 1.15 | 1.3
+  })
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef   = useRef(false)
 
@@ -923,7 +928,10 @@ export default function TripViewPage() {
   // ── Loading ───────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-mist flex items-center justify-center">
-      <div className="text-center"><div className="text-4xl mb-3 animate-pulse">🗺️</div><p className="text-soft text-sm">Loading trip…</p></div>
+      <div className="text-center">
+        <div className="text-7xl mb-5 animate-pulse">🗺️</div>
+        <p className="text-soft text-base tracking-wide">Loading trip…</p>
+      </div>
     </div>
   )
   if (!trip) return null
@@ -1031,11 +1039,23 @@ export default function TripViewPage() {
           {isOwner && (
             <button onClick={handleShare} className="hero-chip active:bg-white/20 cursor-pointer">🔗 Share trip</button>
           )}
+          <button
+            onClick={() => setTextZoom(z => {
+              const next = z === 1 ? 1.15 : z === 1.15 ? 1.3 : 1
+              localStorage.setItem('trip-text-zoom', String(next))
+              return next
+            })}
+            className="hero-chip active:bg-white/20 cursor-pointer font-bold"
+            title="Change text size"
+          >{textZoom === 1 ? 'Aa' : textZoom === 1.15 ? 'A+' : 'A++'}</button>
           {!isOwner && (
             <Link href="/about" className="hero-chip active:bg-white/20 cursor-pointer">ℹ️ About this app</Link>
           )}
         </div>
       </div>
+
+      {/* ── Content (zoomed per text-size preference) ────────────────────────── */}
+      <div style={textZoom !== 1 ? { zoom: textZoom } : undefined}>
 
       {/* ── Sticky day tabs ──────────────────────────────────────────────────── */}
       {days.length > 0 && (
@@ -1334,6 +1354,8 @@ export default function TripViewPage() {
           >Undo</button>
         </div>
       )}
+
+      </div>{/* end zoom wrapper */}
 
       {/* ── Add stop sheet ───────────────────────────────────────────────────── */}
       {trip && activeDay >= 0 && currentDay && (
