@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Trip, TripData, Day, Eating, DaySection, Stop, EmergencyContact } from '@/lib/types'
-import { buildRouteDayUrl } from '@/lib/navigation'
+import { buildRouteDayUrl, buildDayRouteUrl } from '@/lib/navigation'
 import { getAccommodationEntries } from '@/lib/trip-stops'
 import DayTabs from '@/components/trip/DayTabs'
 import StopCard from '@/components/trip/StopCard'
@@ -889,28 +889,6 @@ export default function TripViewPage() {
       setTrip(t => t ? { ...t, is_shared: true } : t)
     }
   }, [id, trip])
-
-  function buildDayRouteUrl(day: Day, startLocation?: string) {
-    // Exclude drive legs and ferry crossings — neither are driveable road waypoints
-    const stops = day.stops
-      .filter(s => s.type !== 'drive' && s.type !== 'ferry' && (s.address || s.name))
-      .map(s => (s.address || s.name) as string)
-
-    // Only append overnight_location when there's no hotel/camping stop already in the
-    // list — those stops ARE the overnight destination, so appending it again would
-    // create a redundant duplicate waypoint (e.g. "Le Mans campsite" + "Le Mans").
-    // When all stops are drives/ferries (stops==[]), overnight_location is still needed
-    // to give Google Maps a destination (e.g. the Bromley last-leg case).
-    const hasOvernightStop = day.stops.some(s => s.type === 'hotel' || s.type === 'camping')
-    if (day.overnight_location && !hasOvernightStop) {
-      if (stops[stops.length - 1] !== day.overnight_location) stops.push(day.overnight_location)
-    }
-
-    if (stops.length === 0) return null
-
-    const wpts = startLocation ? [startLocation, ...stops] : stops
-    return buildRouteDayUrl(wpts)
-  }
 
   useEffect(() => {
     loadTrip().then(t => {
