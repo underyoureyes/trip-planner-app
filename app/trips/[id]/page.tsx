@@ -891,15 +891,19 @@ export default function TripViewPage() {
   }, [id, trip])
 
   function buildDayRouteUrl(day: Day, startLocation?: string) {
+    // Exclude drive legs and ferry crossings — neither are driveable road waypoints
     const stops = day.stops
-      .filter(s => s.type !== 'drive' && (s.address || s.name))
+      .filter(s => s.type !== 'drive' && s.type !== 'ferry' && (s.address || s.name))
       .map(s => (s.address || s.name) as string)
 
-    // Always append overnight_location as the final destination.
-    // This captures the last drive leg (e.g. "drive home to Bromley") which
-    // has no separate non-drive stop in the stops list.
-    if (day.overnight_location && stops[stops.length - 1] !== day.overnight_location) {
-      stops.push(day.overnight_location)
+    // Only append overnight_location when there's no hotel/camping stop already in the
+    // list — those stops ARE the overnight destination, so appending it again would
+    // create a redundant duplicate waypoint (e.g. "Le Mans campsite" + "Le Mans").
+    // When all stops are drives/ferries (stops==[]), overnight_location is still needed
+    // to give Google Maps a destination (e.g. the Bromley last-leg case).
+    const hasOvernightStop = day.stops.some(s => s.type === 'hotel' || s.type === 'camping')
+    if (day.overnight_location && !hasOvernightStop) {
+      if (stops[stops.length - 1] !== day.overnight_location) stops.push(day.overnight_location)
     }
 
     if (stops.length === 0) return null
