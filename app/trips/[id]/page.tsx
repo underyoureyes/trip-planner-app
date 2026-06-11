@@ -588,6 +588,8 @@ export default function TripViewPage() {
   const [generatingContacts, setGeneratingContacts] = useState(false)
   const [editingOvernight,   setEditingOvernight]   = useState(false)
   const [overnightDraft,     setOvernightDraft]     = useState('')
+  const [editingStart,       setEditingStart]       = useState(false)
+  const [startDraft,         setStartDraft]         = useState('')
   const [textZoom, setTextZoom] = useState<1 | 1.15 | 1.3>(() => {
     if (typeof window === 'undefined') return 1
     const s = localStorage.getItem('trip-text-zoom')
@@ -923,7 +925,7 @@ export default function TripViewPage() {
     } catch { /* ignore */ }
   }, [id])
 
-  useEffect(() => { setEditingOvernight(false) }, [activeDay])
+  useEffect(() => { setEditingOvernight(false); setEditingStart(false) }, [activeDay])
 
   // ── Loading ───────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -1097,6 +1099,40 @@ export default function TripViewPage() {
             </p>
             <h2 className="font-serif text-[20px] text-white leading-snug mb-3">{currentDay.title || `Day ${currentDay.day_number}`}</h2>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {/* Starting from — editable for Day 2+; edits previous day's overnight_location */}
+              {activeDay > 0 && startLocation && (
+                isOwner && editingStart ? (
+                  <div className="flex items-center gap-2 w-full mb-1">
+                    <span className="text-[#bfdbfe] flex-shrink-0">📍</span>
+                    <input
+                      type="text"
+                      value={startDraft}
+                      onChange={e => setStartDraft(e.target.value)}
+                      onBlur={() => {
+                        const trimmed = startDraft.trim()
+                        if (trimmed) handleUpdateDayField(activeDay - 1, { overnight_location: trimmed })
+                        setEditingStart(false)
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { if (startDraft.trim()) handleUpdateDayField(activeDay - 1, { overnight_location: startDraft.trim() }); setEditingStart(false) }
+                        if (e.key === 'Escape') setEditingStart(false)
+                      }}
+                      autoFocus
+                      className="text-[13px] font-semibold rounded-lg px-2 py-0.5 outline-none"
+                      style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', width: 180 }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { if (!isOwner) return; setStartDraft(startLocation); setEditingStart(true) }}
+                    className={`flex items-center gap-1.5 text-[13px] text-[#bfdbfe] w-full mb-1 ${isOwner ? 'active:opacity-70' : ''}`}
+                  >
+                    📍 <span className="text-white/60 text-[11px] mr-1">Starting from</span>
+                    <span className="text-white font-semibold">{startLocation}</span>
+                    {isOwner && <span className="text-[10px] ml-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>✏</span>}
+                  </button>
+                )
+              )}
               {currentDay.overnight_location !== undefined && (
                 isOwner && editingOvernight ? (
                   <div className="flex items-center gap-2">
