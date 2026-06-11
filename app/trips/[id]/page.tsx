@@ -1392,15 +1392,32 @@ export default function TripViewPage() {
             </div>
 
             {/* WhatsApp */}
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(`Here's our trip itinerary 🗺️ ${shareLink}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2.5 w-full rounded-card py-3.5 mb-3 no-underline font-semibold text-[15px] text-white active:opacity-90"
-              style={{ background: '#25D366' }}
-            >
-              <span className="text-[20px]">💬</span> Share on WhatsApp
-            </a>
+            {(() => {
+              const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+              const lines: string[] = [`🗺️ ${trip!.title}`]
+              const origin = trip?.intake_form?.origin
+              const dest   = trip?.intake_form?.destination
+              if (origin && dest) lines.push(`${origin} → ${dest}`)
+              const datePart = trip?.start_date && trip?.end_date ? `📅 ${fmt(trip.start_date)} – ${fmt(trip.end_date)}` : ''
+              const daysPart = tripData?.total_days ? `${tripData.total_days} days` : ''
+              const distPart = tripData?.total_distance_km ? `~${Math.round(tripData.total_distance_km).toLocaleString()}km` : ''
+              const meta = [datePart, daysPart, distPart].filter(Boolean).join(' · ')
+              if (meta) lines.push(meta)
+              if (tripData?.summary) lines.push('', tripData.summary)
+              lines.push('', `Open itinerary 👉 ${shareLink}`)
+              const waText = lines.join('\n')
+              return (
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(waText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 w-full rounded-card py-3.5 mb-3 no-underline font-semibold text-[15px] text-white active:opacity-90"
+                  style={{ background: '#25D366' }}
+                >
+                  <span className="text-[20px]">💬</span> Share on WhatsApp
+                </a>
+              )
+            })()}
 
             <button
               onClick={() => setShowShareSheet(false)}
