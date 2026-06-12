@@ -12,7 +12,7 @@ test.describe('Auth pages', () => {
     await page.goto('/register')
     await expect(page.locator('input[type="email"]')).toBeVisible()
     await expect(page.locator('input[type="password"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: /register|sign up/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /create account|register|sign up/i })).toBeVisible()
   })
 
   test('register page link navigates to login', async ({ page }) => {

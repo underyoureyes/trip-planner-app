@@ -70,8 +70,8 @@ test.describe('Shared trip access', () => {
 
   test('View trip banner links back to the trip with from_about=1', async ({ page }) => {
     await page.goto('/about?next=/trips/shared-trip-1')
-    const viewBtn = page.getByText(/View trip/i)
-    const href = await viewBtn.locator('..').getAttribute('href')
+    const link = page.locator('a', { hasText: /View trip/i })
+    const href = await link.getAttribute('href')
     expect(href).toContain('/trips/shared-trip-1')
     expect(href).toContain('from_about=1')
   })
@@ -97,7 +97,8 @@ test.describe('Shared trip access', () => {
     await page.goto('/trips/shared-trip-1?from_about=1')
     await page.getByText('Day 1').click()
     await expect(page.getByText('SECRET-REF-123')).not.toBeVisible()
-    await expect(page.getByText(/owner only/i)).toBeVisible()
+    // "owner only" appears in both the booking-ref span and the notes paragraph — use .first()
+    await expect(page.getByText(/owner only/i).first()).toBeVisible()
   })
 
   test('non-owner cannot see lock box code in hotel notes', async ({ page }) => {
@@ -136,10 +137,10 @@ test.describe('About page auth state', () => {
       body: JSON.stringify({ id: 'logged-in-user', email: 'me@test.com', profile: {} }),
     }))
     // About page checks auth server-side — since we can't mock SSR here,
-    // we test the page loads and doesn't show the hero sign-in buttons
+    // we test the hero gradient section doesn't contain sign-in links
     await page.goto('/about')
-    // Sign in / Get access should NOT be in the hero (they were moved to bottom)
-    const heroSection = page.locator('div').filter({ hasText: /Road trips planned/ }).first()
+    // Use the gradient class to target the hero specifically (not the whole page)
+    const heroSection = page.locator('.bg-gradient-to-b').first()
     await expect(heroSection.getByRole('link', { name: /Sign in/ })).not.toBeVisible()
     await expect(heroSection.getByRole('link', { name: /Get access/ })).not.toBeVisible()
   })

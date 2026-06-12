@@ -15,9 +15,9 @@ const OWNER_TRIP = {
 
 const TRIP_DATA: TripData = {
   summary: 'Test trip',
-  total_days: 1,
-  total_distance_km: 50,
-  total_stops: 3,
+  total_days: 2,
+  total_distance_km: 100,
+  total_stops: 4,
   days: [
     {
       day_number: 1,
@@ -37,6 +37,15 @@ const TRIP_DATA: TripData = {
           cancellation_policy: 'Free cancellation until 28 Jun 2026',
           pay_at_hotel: false,
         },
+      ],
+      eating: [],
+    },
+    {
+      day_number: 2,
+      date: '2026-07-02',
+      title: 'Day two',
+      overnight_location: 'Harrogate',
+      stops: [
         {
           name: 'Harrogate Arms',
           type: 'hotel',
@@ -44,7 +53,7 @@ const TRIP_DATA: TripData = {
           check_in: '16:00',
           check_out: '11:00',
           booking_ref: 'HAR-001',
-          notes: 'Non-refundable prepaid booking.',
+          notes: 'Prepaid booking — no refunds.',
           cancellation_policy: 'Non-refundable',
           pay_at_hotel: true,
         },
@@ -92,15 +101,15 @@ test.describe('Booking policy display', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 1').click()
-    await expect(page.getByText('Non-refundable')).toBeVisible()
+    await page.getByText('Day 2').click()
+    await expect(page.getByText('Non-refundable').first()).toBeVisible()
   })
 
   test('shows pay-at-hotel badge on relevant stop', async ({ page }) => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 1').click()
+    await page.getByText('Day 2').click()
     await expect(page.getByText('Pay at hotel')).toBeVisible()
   })
 
@@ -148,8 +157,9 @@ test.describe('Sensitive info masking for non-owners', () => {
   test('booking reference is masked for non-owner', async ({ page }) => {
     // Should NOT see the actual booking ref
     await expect(page.getByText('BOOKING-XYZ-789')).not.toBeVisible()
-    // Should see the masked version
-    await expect(page.getByText(/owner only/i)).toBeVisible()
+    // Should see the masked version — use .first() since "owner only" appears in both the
+    // booking-ref span and the notes masking paragraph
+    await expect(page.getByText(/owner only/i).first()).toBeVisible()
   })
 
   test('hotel notes (access codes) are hidden for non-owner', async ({ page }) => {

@@ -65,9 +65,12 @@ export function buildDayRouteUrl(
   day: Day,
   startLocation?: string,
 ): { google: string; apple: string; web: string } | null {
-  const stops = day.stops
+  const rawStops = day.stops
     .filter(s => s.type !== 'drive' && s.type !== 'ferry' && (s.address || s.name))
     .map(s => (s.address || s.name) as string)
+
+  // Deduplicate consecutive identical addresses (e.g. activity + camping at same venue)
+  const stops = rawStops.filter((v, i) => i === 0 || v !== rawStops[i - 1])
 
   const hasOvernightStop = day.stops.some(s => s.type === 'hotel' || s.type === 'camping')
   if (day.overnight_location && !hasOvernightStop) {
@@ -78,7 +81,11 @@ export function buildDayRouteUrl(
 
   if (stops.length === 0) return null
 
-  const wpts = startLocation ? [startLocation, ...stops] : stops
+  // Remove waypoints that exactly match the start (already the origin — would create a duplicate)
+  const filteredStops = startLocation ? stops.filter(s => s !== startLocation) : stops
+  if (filteredStops.length === 0) return null
+
+  const wpts = startLocation ? [startLocation, ...filteredStops] : filteredStops
   return buildRouteDayUrl(wpts)
 }
 

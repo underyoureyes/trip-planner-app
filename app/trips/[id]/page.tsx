@@ -351,7 +351,7 @@ function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay:
                 {stop.phone && (
                   <div className="flex items-center gap-2 text-[13px]">
                     <span className="text-soft flex-shrink-0 w-20">Phone</span>
-                    <a href={`tel:${stop.phone}`} className="text-blue-600 font-semibold" onClick={e => e.stopPropagation()}>
+                    <a href={`tel:${stop.phone.replace(/\s/g, '')}`} className="text-blue-600 font-semibold" onClick={e => e.stopPropagation()}>
                       {stop.phone}
                     </a>
                   </div>
@@ -615,11 +615,10 @@ export default function TripViewPage() {
     setTripData(data.tripData)
     setLoading(false)
 
-    // Auto-navigate to today's day if the trip is active
+    // Auto-navigate to today's day if the trip is active; otherwise show Day 1
     const today = new Date().toISOString().split('T')[0]
     const todayIdx = (data.tripData?.days || []).findIndex((d: Day) => d.date === today)
-    if (todayIdx >= 0) setActiveDay(todayIdx)
-    // else stays at -1 (overview)
+    setActiveDay(todayIdx >= 0 ? todayIdx : 0)
 
     // /api/me only works when logged in — guests viewing a shared trip will get 401, that's fine
     const meRes = await fetch('/api/me')
@@ -1189,14 +1188,14 @@ export default function TripViewPage() {
             const weatherTown = currentDay.overnight_location.split(',')[0].replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, '').trim()
             return (
             <a
-              href={`https://www.google.com/search?q=weather+${encodeURIComponent(weatherTown)}`}
+              href={`https://www.bbc.co.uk/weather/search?q=${encodeURIComponent(weatherTown)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full rounded-card py-3 px-5 mb-3.5 no-underline text-[13px] font-semibold"
               style={{ background: '#dbeafe', color: '#2563a8', border: '1px solid rgba(37,99,168,0.2)' }}
             >
               <span>🌤</span>
-              <span>Weather forecast for {weatherTown}</span>
+              <span>Check BBC Weather for {weatherTown}</span>
             </a>
             )
           })()}
