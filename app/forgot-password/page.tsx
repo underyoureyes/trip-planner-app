@@ -8,17 +8,28 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError('')
     setLoading(true)
+
     const supabase = createClient()
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset`,
-    })
-    // Always show success to avoid revealing whether an email exists
-    setSent(true)
+    const redirectTo = `${window.location.origin}/auth/reset`
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+
     setLoading(false)
+
+    if (resetError) {
+      // Surface the real error — useful for diagnosing Supabase config issues
+      // (e.g. redirectTo not in Supabase allowed redirect URLs list)
+      setError(resetError.message)
+      return
+    }
+
+    setSent(true)
   }
 
   if (sent) {
@@ -28,16 +39,25 @@ export default function ForgotPasswordPage() {
           <div className="text-5xl mb-3">📧</div>
           <h1 className="text-white text-2xl font-bold">Check your email</h1>
           <p className="text-brand-200 mt-2 text-sm px-4">
-            If an account exists for <strong className="text-white">{email}</strong>, a reset link has been sent.
+            A reset link has been sent to <strong className="text-white">{email}</strong>
           </p>
         </div>
-        <div className="flex-1 bg-gray-50 rounded-t-3xl px-6 pt-8 pb-10">
-          <p className="text-sm text-gray-600 mb-6">
-            Click the link in the email to set a new password. The link expires in 1 hour.
-          </p>
+        <div className="flex-1 bg-gray-50 rounded-t-3xl px-6 pt-8 pb-10 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1.5">
+            <p className="font-semibold">📬 Didn&apos;t arrive?</p>
+            <p>• Check your spam / junk folder</p>
+            <p>• The link expires in 1 hour</p>
+            <p>• Only one active reset link exists at a time</p>
+          </div>
           <Link href="/login" className="btn-primary block text-center">
             Back to sign in
           </Link>
+          <button
+            onClick={() => { setSent(false) }}
+            className="w-full text-center text-sm text-gray-500 underline underline-offset-2"
+          >
+            Send again
+          </button>
         </div>
       </div>
     )
@@ -68,6 +88,20 @@ export default function ForgotPasswordPage() {
               required
             />
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+              <p className="font-semibold mb-1">Could not send reset email</p>
+              <p>{error}</p>
+              {error.toLowerCase().includes('redirect') && (
+                <p className="mt-2 text-xs text-red-600">
+                  In Supabase → Authentication → URL Configuration, add{' '}
+                  <strong>{typeof window !== 'undefined' ? window.location.origin : ''}/auth/reset</strong>{' '}
+                  to the Redirect URLs list.
+                </p>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
