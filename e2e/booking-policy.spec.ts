@@ -93,7 +93,7 @@ test.describe('Booking policy display', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await expect(page.getByText(/Free cancellation until 28 Jun/)).toBeVisible()
   })
 
@@ -101,7 +101,7 @@ test.describe('Booking policy display', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 2').click()
+    await page.locator('.overflow-x-auto').getByRole('button', { name: /Day 2/ }).click()
     await expect(page.getByText('Non-refundable').first()).toBeVisible()
   })
 
@@ -109,7 +109,7 @@ test.describe('Booking policy display', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 2').click()
+    await page.locator('.overflow-x-auto').getByRole('button', { name: /Day 2/ }).click()
     await expect(page.getByText('Pay at hotel')).toBeVisible()
   })
 
@@ -128,7 +128,7 @@ test.describe('Booking policy editing (owner)', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await expect(page.getByText(/Edit booking policy/i)).toBeVisible()
   })
 
@@ -136,7 +136,7 @@ test.describe('Booking policy editing (owner)', () => {
     await mockOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await page.getByText(/Edit booking policy/i).first().click()
     await expect(page.getByPlaceholder(/Cancellation policy/i)).toBeVisible()
     await expect(page.getByText('Pay at hotel')).toBeVisible()
@@ -151,7 +151,7 @@ test.describe('Sensitive info masking for non-owners', () => {
     await mockNonOwner(page)
     await mockTrip(page)
     await page.goto('/trips/policy-trip?from_about=1')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
   })
 
   test('booking reference is masked for non-owner', async ({ page }) => {

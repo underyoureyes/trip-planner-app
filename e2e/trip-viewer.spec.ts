@@ -112,16 +112,16 @@ test.describe('Trip viewer (mocked API)', () => {
 
   test('renders day tabs with emoji badges', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    await expect(page.getByText('Day 1')).toBeVisible()
-    await expect(page.getByText('Day 2')).toBeVisible()
-    await expect(page.getByText('Day 3')).toBeVisible()
+    await expect(page.getByText('Day 1').first()).toBeVisible()
+    await expect(page.getByText('Day 2').first()).toBeVisible()
+    await expect(page.getByText('Day 3').first()).toBeVisible()
     await expect(page.getByText('🏰🌿')).toBeVisible()
   })
 
   test('shows day 1 driving stats', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    await expect(page.getByText(/1h 30m/)).toBeVisible()   // drive time
-    await expect(page.getByText(/112 km/)).toBeVisible()    // distance
+    await expect(page.getByText(/1h 30m/).first()).toBeVisible()  // drive time
+    await expect(page.getByText(/112 km/).first()).toBeVisible()   // distance
     await expect(page.getByText(/6\.2 km walking/)).toBeVisible()
     await expect(page.getByText(/8,500 steps/)).toBeVisible()
   })
@@ -137,36 +137,41 @@ test.describe('Trip viewer (mocked API)', () => {
 
   test('shows stop names on day 1', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    await expect(page.getByText('Edinburgh Castle')).toBeVisible()
+    await expect(page.getByText('Edinburgh Castle').first()).toBeVisible()
     await expect(page.getByText('Pitlochry Hotel')).toBeVisible()
   })
 
   test('shows dog-friendly badge on a dog-friendly stop (day 2)', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    await page.getByText('Day 2').click()
+    await page.locator('.overflow-x-auto').getByRole('button', { name: /Day 2/ }).click()
     await expect(page.getByText('Dog friendly')).toBeVisible()
   })
 
   test('eating section shows website link', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
+    await page.getByRole('button', { name: /Activities.*Tips/i }).click()
     await expect(page.getByText(/The Copper Pot/)).toBeVisible()
     await expect(page.getByText(/example\.com/)).toBeVisible()
   })
 
   test('day sections card is collapsible', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    const sectionBtn = page.getByText('🐾 Dog Tips')
-    await expect(sectionBtn).toBeVisible()
-    await sectionBtn.click()
+    const panelBtn = page.getByRole('button', { name: /Activities.*Tips/i })
+    await expect(panelBtn).toBeVisible()
+    // Content hidden when panel is closed
+    await expect(page.getByText(/Pitlochry dam walk/)).not.toBeVisible()
+    // Open the panel
+    await panelBtn.click()
     await expect(page.getByText(/Pitlochry dam walk/)).toBeVisible()
-    await sectionBtn.click()
+    await expect(page.getByText('🐾 Dog Tips')).toBeVisible()
+    // Close the panel
+    await panelBtn.click()
     await expect(page.getByText(/Pitlochry dam walk/)).not.toBeVisible()
   })
 
   test('per-day emergency contacts section is collapsible', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    // Navigate to Day 1 where contacts without a location field appear
-    await page.getByText('Day 1').click()
+    // Contacts with no location field appear on all days; page defaults to Day 1
     const sosBtn = page.locator('button', { hasText: /Emergency contacts/i }).first()
     await expect(sosBtn).toBeVisible()
     await sosBtn.click()

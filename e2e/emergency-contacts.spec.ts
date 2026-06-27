@@ -78,6 +78,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
+      await page.getByRole('button', { name: 'Overview' }).click()
       await expect(page.getByText(/Emergency.*Useful Contacts/i)).toBeVisible()
     })
 
@@ -85,6 +86,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
+      await page.getByRole('button', { name: 'Overview' }).click()
       await expect(page.getByText('York Hospital A&E')).toBeVisible()
       await expect(page.getByText('York Vets')).toBeVisible()
       await expect(page.getByText('Harrogate Hospital')).toBeVisible()
@@ -97,6 +99,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
+      await page.getByRole('button', { name: 'Overview' }).click()
       await expect(page.getByRole('button', { name: /Generate/i })).toBeVisible()
     })
 
@@ -121,6 +124,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
+      await page.getByRole('button', { name: 'Overview' }).click()
       const phoneLink = page.locator('a[href="tel:01904631313"]')
       await expect(phoneLink).toBeVisible()
     })
@@ -131,7 +135,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
-      await page.getByText('Day 1').click()
+      // Page defaults to Day 1 — no click needed
 
       const sosBtn = page.locator('button', { hasText: /Emergency contacts.*York/i }).first()
       await expect(sosBtn).toBeVisible()
@@ -147,7 +151,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
-      await page.getByText('Day 2').click()
+      await page.locator('.overflow-x-auto').getByRole('button', { name: /Day 2/ }).click()
 
       const sosBtn = page.locator('button', { hasText: /Emergency contacts.*Harrogate/i }).first()
       await expect(sosBtn).toBeVisible()
@@ -163,7 +167,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
-      await page.getByText('Day 1').click()
+      // Page defaults to Day 1 — no click needed
 
       const sosBtn = page.locator('button', { hasText: /Emergency contacts/i }).first()
       await expect(sosBtn).toBeVisible()
@@ -184,7 +188,7 @@ test.describe('Emergency contacts', () => {
       await mockOwner(page)
       await mockTrip(page)
       await page.goto('/trips/ec-trip')
-      await page.getByText('Day 1').click()
+      // Page defaults to Day 1 — no click needed
       await expect(page.locator('button', { hasText: /Emergency contacts.*York/i })).toBeVisible()
     })
   })

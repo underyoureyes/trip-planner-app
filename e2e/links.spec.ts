@@ -151,7 +151,7 @@ test.describe('Link integrity', () => {
 
     test('Open Route in Maps button is a valid maps URL', async ({ page }) => {
       await page.goto('/trips/links-trip')
-      const routeBtn = page.getByText('Open Route in Maps').locator('..')
+      const routeBtn = page.locator('a', { hasText: 'Open Route in Maps' })
       await expect(routeBtn).toBeVisible()
       const href = await routeBtn.getAttribute('href')
       expect(href).toBeTruthy()
@@ -185,10 +185,9 @@ test.describe('Link integrity', () => {
 
     test('phone numbers in emergency contacts use tel: protocol', async ({ page }) => {
       await page.goto('/trips/links-trip')
-      await page.getByText('Day 1').click()
-      const sosBtn = page.locator('button', { hasText: /Emergency contacts/i }).first()
-      await expect(sosBtn).toBeVisible()
-      await sosBtn.click()
+      // Contacts have location:'York' but Day 1 overnight is a full address, so they won't
+      // appear on the per-day view. Navigate to Overview to see all contacts directly.
+      await page.getByRole('button', { name: 'Overview' }).click()
       const phoneLink = page.locator('a[href^="tel:"]').first()
       await expect(phoneLink).toBeVisible()
       const href = await phoneLink.getAttribute('href')

@@ -95,7 +95,7 @@ test.describe('Shared trip access', () => {
     }))
     await mockTripApi(page)
     await page.goto('/trips/shared-trip-1?from_about=1')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await expect(page.getByText('SECRET-REF-123')).not.toBeVisible()
     // "owner only" appears in both the booking-ref span and the notes paragraph — use .first()
     await expect(page.getByText(/owner only/i).first()).toBeVisible()
@@ -109,7 +109,7 @@ test.describe('Shared trip access', () => {
     }))
     await mockTripApi(page)
     await page.goto('/trips/shared-trip-1?from_about=1')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await expect(page.getByText('9977')).not.toBeVisible()
     await expect(page.getByText(/Lock box/)).not.toBeVisible()
     await expect(page.getByText(/Access details.*owner only/i)).toBeVisible()
@@ -123,7 +123,7 @@ test.describe('Shared trip access', () => {
     }))
     await mockTripApi(page)
     await page.goto('/trips/shared-trip-1')
-    await page.getByText('Day 1').click()
+    // Page defaults to Day 1 — no click needed
     await expect(page.getByText('SECRET-REF-123')).toBeVisible()
     await expect(page.getByText(/9977/)).toBeVisible()
   })
