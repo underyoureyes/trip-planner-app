@@ -23,9 +23,10 @@ export default function ForgotPasswordPage() {
     setLoading(false)
 
     if (resetError) {
-      // Surface the real error — useful for diagnosing Supabase config issues
-      // (e.g. redirectTo not in Supabase allowed redirect URLs list)
-      setError(resetError.message)
+      const isNetwork = /load failed|failed to fetch|networkerror/i.test(resetError.message)
+      setError(isNetwork
+        ? '⚠️ Cannot reach the server — the service may be temporarily unavailable. Please try again in a moment.'
+        : resetError.message)
       return
     }
 
@@ -91,15 +92,7 @@ export default function ForgotPasswordPage() {
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-              <p className="font-semibold mb-1">Could not send reset email</p>
-              <p>{error}</p>
-              {error.toLowerCase().includes('redirect') && (
-                <p className="mt-2 text-xs text-red-600">
-                  In Supabase → Authentication → URL Configuration, add{' '}
-                  <strong>{typeof window !== 'undefined' ? window.location.origin : ''}/auth/reset</strong>{' '}
-                  to the Redirect URLs list.
-                </p>
-              )}
+              {error}
             </div>
           )}
 

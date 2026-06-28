@@ -21,7 +21,10 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError('Incorrect email or password')
+      const isNetwork = /load failed|failed to fetch|networkerror/i.test(error.message)
+      setError(isNetwork
+        ? '⚠️ Cannot reach the server — the service may be temporarily unavailable. Please try again in a moment.'
+        : 'Incorrect email or password')
       setLoading(false)
       return
     }
