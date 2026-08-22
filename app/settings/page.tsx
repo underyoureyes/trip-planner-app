@@ -20,6 +20,8 @@ export default function SettingsPage() {
   const [validatingKey, setValidatingKey] = useState(false)
   const [keyError, setKeyError] = useState('')
   const [usage, setUsage] = useState<UsageSummary | null>(null)
+  const [resetting, setResetting] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
@@ -67,6 +69,15 @@ export default function SettingsPage() {
     setSaving(true)
     await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ claude_api_key: '' }) })
     setHasApiKey(false); setApiKeyHint(null); setApiKey(''); setMessage('API key removed'); setSaving(false)
+  }
+
+  async function resetDemoTrips() {
+    if (!confirm('Reset the Scotland 2026 and Lake Garda 2026 demo trips to their latest data? Any edits you\'ve made to them will be lost.')) return
+    setResetting(true); setResetMessage('')
+    const res = await fetch('/api/import-trips', { method: 'POST' })
+    const json = await res.json().catch(() => ({}))
+    setResetting(false)
+    setResetMessage(res.ok ? 'Done — reopen the trip to see the latest data.' : (json.error || 'Reset failed'))
   }
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-400 text-sm">Loading…</div></div>
@@ -179,6 +190,15 @@ export default function SettingsPage() {
         <button onClick={save} disabled={saving || validatingKey} className="btn-primary disabled:opacity-50">
           {validatingKey ? 'Validating key…' : saving ? 'Saving…' : 'Save settings'}
         </button>
+
+        <div className="card space-y-3">
+          <h2 className="font-semibold text-gray-900">Demo trips</h2>
+          <p className="text-sm text-gray-500">Resets the Scotland 2026 and Lake Garda 2026 demo trips to their latest built-in data — useful after an app update adds new links or details to them.</p>
+          <button onClick={resetDemoTrips} disabled={resetting} className="btn-secondary w-full disabled:opacity-50">
+            {resetting ? 'Resetting…' : 'Reset demo trips to latest data'}
+          </button>
+          {resetMessage && <p className="text-sm text-gray-600">{resetMessage}</p>}
+        </div>
 
         <div className="pt-4">
           <button onClick={signOut} className="w-full py-3 text-red-500 font-medium text-sm">Sign out</button>

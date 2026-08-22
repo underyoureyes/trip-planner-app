@@ -25,8 +25,9 @@ export async function POST(request: Request) {
       .single()
 
     if (existing) {
-      results.push({ title: trip.title, status: 'already_exists', id: existing.id })
-      continue
+      // Deleting the trip cascades to trip_data, so re-creating it below
+      // always resets it to this route's current demo data.
+      await supabase.from('trips').delete().eq('id', existing.id)
     }
 
     const { data: newTrip, error: tripError } = await supabase
