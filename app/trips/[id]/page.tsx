@@ -38,6 +38,62 @@ const CONTACT_LABEL: Record<EmergencyContact['type'], string> = {
   a_and_e: 'A&E', walk_in: 'Walk-in', vet: 'Vet', hospital: 'Hospital', pharmacy: 'Pharmacy', police: 'Police', breakdown: 'Breakdown', other: 'Other',
 }
 
+// ── Notes/Tips linkification ────────────────────────────────────────────────
+// Notes and section text are freeform strings with no link data of their own.
+// Auto-link any substring that names a stop or eating place from the same day
+// that already has a website or address, so "Book Monte Baldo cable car..."
+// picks up the same link already shown on that day's Monte Baldo stop card.
+
+type LinkTarget = { name: string; href: string }
+
+function collectLinkTargets(stops?: Stop[], eating?: Eating[]): LinkTarget[] {
+  const targets: LinkTarget[] = []
+  const add = (name?: string, website?: string, address?: string) => {
+    if (!name) return
+    const href = website || (address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : undefined)
+    if (href) targets.push({ name, href })
+  }
+  stops?.forEach(s => add(s.name, s.website, s.address))
+  eating?.forEach(e => add(e.name, e.website, e.address))
+  // Longest names first, so a full stop name matches before a shorter one could.
+  return targets.sort((a, b) => b.name.length - a.name.length)
+}
+
+// Notes often name a place more loosely than its full stop/eating name
+// ("Ristorante Arche" vs. the eating entry "Ristorante Arche Verona"), so try
+// the full name first, then progressively shorter word n-grams of it.
+function findNameInLine(line: string, name: string): { idx: number; len: number } | null {
+  const lline = line.toLowerCase()
+  const words = name.split(/\s+/)
+  for (let len = words.length; len >= 2; len--) {
+    for (let start = 0; start + len <= words.length; start++) {
+      const candidate = words.slice(start, start + len).join(' ')
+      if (candidate.replace(/[^a-z0-9]/gi, '').length < 5) continue
+      const idx = lline.indexOf(candidate.toLowerCase())
+      if (idx !== -1) return { idx, len: candidate.length }
+    }
+  }
+  return null
+}
+
+function linkifyLine(line: string, targets: LinkTarget[]) {
+  for (const { name, href } of targets) {
+    const match = findNameInLine(line, name)
+    if (!match) continue
+    const { idx, len } = match
+    return (
+      <>
+        {line.slice(0, idx)}
+        <a href={href} target="_blank" rel="noopener noreferrer" className="underline font-semibold" style={{ color: 'inherit' }}>
+          {line.slice(idx, idx + len)}
+        </a>
+        {line.slice(idx + len)}
+      </>
+    )
+  }
+  return line
+}
+
 function OverviewSection({
   days,
   emergencyContacts,
@@ -419,8 +475,9 @@ function AccommodationSection({ days, onSelectDay }: { days: Day[]; onSelectDay:
 }
 
 function InfoPanel({
-  eating, sections, isOwner, onDeleteEating,
+  stops, eating, sections, isOwner, onDeleteEating,
 }: {
+  stops?: Stop[]
   eating?: Eating[]
   sections?: DaySection[]
   isOwner: boolean
@@ -429,6 +486,7 @@ function InfoPanel({
   const [open, setOpen] = useState(false)
   const hasContent = (eating && eating.length > 0) || (sections && sections.length > 0)
   if (!hasContent) return null
+  const linkTargets = collectLinkTargets(stops, eating)
 
   return (
     <div className="rounded-card overflow-hidden border border-line mb-3.5" style={{ boxShadow: '0 2px 16px rgba(26,26,46,0.10)' }}>
@@ -493,13 +551,14 @@ function InfoPanel({
                   {section.content.split('\n').filter(Boolean).map((line, j) => {
                     const isAmber = line.startsWith('⚠️') || line.startsWith('⚠')
                     const isGreen = line.startsWith('✅') || line.startsWith('✓')
+                    const linked = linkifyLine(line, linkTargets)
                     if (isAmber) return (
-                      <div key={j} className="text-[13px] px-3 py-2 rounded mb-1.5 leading-snug" style={{ background: '#fff0e4', borderLeft: '3px solid #e07b39', color: '#7a3800' }}>{line}</div>
+                      <div key={j} className="text-[13px] px-3 py-2 rounded mb-1.5 leading-snug" style={{ background: '#fff0e4', borderLeft: '3px solid #e07b39', color: '#7a3800' }}>{linked}</div>
                     )
                     if (isGreen) return (
-                      <div key={j} className="text-[13px] px-3 py-2 rounded mb-1.5 leading-snug" style={{ background: '#d8f3dc', borderLeft: '3px solid #2d6a4f', color: '#1a4731' }}>{line}</div>
+                      <div key={j} className="text-[13px] px-3 py-2 rounded mb-1.5 leading-snug" style={{ background: '#d8f3dc', borderLeft: '3px solid #2d6a4f', color: '#1a4731' }}>{linked}</div>
                     )
-                    return <p key={j} className="text-[13px] text-soft leading-relaxed py-1.5 border-b border-[#f0f4fa] last:border-none">{line}</p>
+                    return <p key={j} className="text-[13px] text-soft leading-relaxed py-1.5 border-b border-[#f0f4fa] last:border-none">{linked}</p>
                   })}
                 </div>
               ))}
@@ -1286,14 +1345,17 @@ export default function TripViewPage() {
           {currentDay.notes && (
             <div className="rounded-card p-4 mb-3.5 border" style={{ background: '#fef3d0', borderColor: '#f0c040' }}>
               <p className="text-[12px] font-semibold tracking-[1px] uppercase mb-2" style={{ color: '#c9963a' }}>📌 Notes</p>
-              {currentDay.notes.split('\n').filter(Boolean).map((line, i) => (
-                <p key={i} className="text-[13px] leading-relaxed pl-3 relative before:content-['•'] before:absolute before:left-0 before:font-bold" style={{ color: '#5a3e00' }}>{line}</p>
+              {currentDay.notes.split(/\n|\s*\|\s*/).map(s => s.trim()).filter(Boolean).map((line, i) => (
+                <p key={i} className="text-[13px] leading-relaxed pl-3 relative before:content-['•'] before:absolute before:left-0 before:font-bold" style={{ color: '#5a3e00' }}>
+                  {linkifyLine(line, collectLinkTargets(currentDay.stops, currentDay.eating))}
+                </p>
               ))}
             </div>
           )}
 
           {/* Activities, Eating & Tips panel */}
           <InfoPanel
+            stops={currentDay.stops}
             eating={currentDay.eating}
             sections={currentDay.sections}
             isOwner={isOwner}
