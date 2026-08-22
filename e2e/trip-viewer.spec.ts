@@ -151,7 +151,8 @@ test.describe('Trip viewer (mocked API)', () => {
     await page.goto('/trips/e2e-trip-1')
     await page.getByRole('button', { name: /Activities.*Tips/i }).click()
     await expect(page.getByText(/The Copper Pot/)).toBeVisible()
-    await expect(page.getByText(/example\.com/)).toBeVisible()
+    const websiteLink = page.locator('a[href="https://example.com"]')
+    await expect(websiteLink).toBeVisible()
   })
 
   test('day sections card is collapsible', async ({ page }) => {
