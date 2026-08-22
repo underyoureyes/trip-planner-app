@@ -1185,17 +1185,22 @@ export default function TripViewPage() {
 
           {/* Weather button */}
           {currentDay.overnight_location && (() => {
-            const weatherTown = currentDay.overnight_location.split(',')[0].replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, '').trim()
+            const parts = currentDay.overnight_location.split(',').map(p => p.trim()).filter(Boolean)
+            let weatherTown = currentDay.overnight_location
+            if (parts.length > 0) {
+              const lastIsPostcode = parts.length > 1 && /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(parts[parts.length - 1])
+              weatherTown = lastIsPostcode ? parts[parts.length - 2] : parts[parts.length - 1]
+            }
             return (
             <a
-              href={`https://www.bbc.co.uk/weather/search?q=${encodeURIComponent(weatherTown)}`}
+              href={`https://www.google.com/search?q=weather+${encodeURIComponent(weatherTown)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full rounded-card py-3 px-5 mb-3.5 no-underline text-[13px] font-semibold"
               style={{ background: '#dbeafe', color: '#2563a8', border: '1px solid rgba(37,99,168,0.2)' }}
             >
               <span>🌤</span>
-              <span>Check BBC Weather for {weatherTown}</span>
+              <span>Weather forecast for {weatherTown}</span>
             </a>
             )
           })()}

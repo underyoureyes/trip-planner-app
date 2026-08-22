@@ -128,11 +128,11 @@ test.describe('Trip viewer (mocked API)', () => {
 
   test('shows weather link for overnight location', async ({ page }) => {
     await page.goto('/trips/e2e-trip-1')
-    const weatherLink = page.locator('a[href*="bbc.co.uk/weather"]')
+    const weatherLink = page.locator('a[href*="google.com/search"][href*="weather"]')
     await expect(weatherLink).toBeVisible()
     const href = await weatherLink.getAttribute('href')
     expect(href).toContain('Pitlochry')
-    await expect(page.getByText(/Check BBC Weather for Pitlochry/)).toBeVisible()
+    await expect(page.getByText(/Weather forecast for Pitlochry/)).toBeVisible()
   })
 
   test('shows stop names on day 1', async ({ page }) => {

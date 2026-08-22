@@ -87,7 +87,7 @@ test.describe('Link integrity', () => {
     }))
   })
 
-  test.describe('BBC Weather link', () => {
+  test.describe('Weather link', () => {
     test('uses town name when overnight_location is just a town', async ({ page }) => {
       await page.route('**/api/trips/links-trip', route => route.fulfill({
         status: 200,
@@ -95,7 +95,7 @@ test.describe('Link integrity', () => {
         body: JSON.stringify({ trip: BASE_TRIP, tripData: TRIP_DATA_SIMPLE }),
       }))
       await page.goto('/trips/links-trip')
-      const link = page.locator('a[href*="bbc.co.uk/weather"]')
+      const link = page.locator('a[href*="google.com/search"][href*="weather"]')
       await expect(link).toBeVisible()
       const href = await link.getAttribute('href')
       expect(href).toContain('York')
@@ -109,13 +109,13 @@ test.describe('Link integrity', () => {
         body: JSON.stringify({ trip: BASE_TRIP, tripData: TRIP_DATA_FULL_ADDRESS }),
       }))
       await page.goto('/trips/links-trip')
-      const link = page.locator('a[href*="bbc.co.uk/weather"]')
+      const link = page.locator('a[href*="google.com/search"][href*="weather"]')
       await expect(link).toBeVisible()
       const href = await link.getAttribute('href')
       // Should use "Skipton Road" (first part) not the full address
       expect(href).not.toContain('YO30')
       expect(href).not.toContain('Skelton')
-      expect(href).toContain('bbc.co.uk/weather')
+      expect(href).toContain('google.com/search')
     })
 
     test('opens in a new tab', async ({ page }) => {
@@ -125,7 +125,7 @@ test.describe('Link integrity', () => {
         body: JSON.stringify({ trip: BASE_TRIP, tripData: TRIP_DATA_SIMPLE }),
       }))
       await page.goto('/trips/links-trip')
-      const link = page.locator('a[href*="bbc.co.uk/weather"]')
+      const link = page.locator('a[href*="google.com/search"][href*="weather"]')
       await expect(link).toHaveAttribute('target', '_blank')
       await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     })
