@@ -1,10 +1,25 @@
 # Trip Planner App — Claude Code Project
 
+## ⚠️ This is NOT the `trip-planner` repo — read this first
+
+There are **two separate GitHub repos** with confusingly similar names and subject matter:
+
+| | `trip-planner` | `trip-planner-app` (this repo) |
+|---|---|---|
+| What it is | Python builder → static HTML, deployed to GitHub Pages | Next.js + Supabase web app |
+| Where it lives | `underyoureyes.github.io/trip-planner/<trip-id>/` | **https://trip-planner-app-flax.vercel.app/** |
+| Trip data source | `trips/<id>/data.json`, committed to git | Supabase database (`trip_data` table) — **not** in git |
+| How you edit content | Edit `data.json`, run `deploy.sh` | Use the app's UI — writes straight to Supabase |
+
+**These are unrelated codebases that happen to describe the same real-world trips.** If a user reports a bug in "the app" (missing links, wrong content, a UI element behaving oddly), do not assume which repo they mean — ask, or check which URL they're actually using. A fix applied to the wrong one will look successful (it builds, deploys, even merges) while doing nothing for what the user actually sees. Figuring out this split cost a full multi-hour session once already — see git history around the "Add hyperlinks to Notes and Tips sections" PR for the full story.
+
+---
+
 ## What this project does
 
 An iPhone-first PWA for generating and viewing road trip itineraries. Users create a trip by filling in an intake form; Claude AI generates a full day-by-day itinerary which is saved to Supabase. The app works as a progressive web app — add to iPhone home screen for a native feel.
 
-**Live app:** deployed on Vercel (connect `main` branch to a new Vercel project)
+**Live app:** https://trip-planner-app-flax.vercel.app/ (Vercel project tracks the `main` branch)
 
 ---
 
@@ -117,6 +132,19 @@ Key RLS rules: users can only read/write their own rows. Shared trips (`is_share
 1. `/register` — requires `INVITE_CODE` env var to match
 2. On first login, redirected to `/setup` to complete profile
 3. `/settings` — user adds their Claude API key (stored in Supabase `user_settings`)
+
+---
+
+## Where trip data actually lives
+
+**Code changes to this repo do not update anyone's existing trip.** Two entirely separate things share the word "data":
+
+1. **Live trip data** — a trip's actual day-by-day itinerary (`trips.id` → `trip_data.data`, a JSON blob matching `TripData` in `lib/types.ts`). Created once (via generation or import) and from then on read/written *only* through `app/api/trips/[id]/data/route.ts`, straight to Supabase. It has no connection to git at all — a `git push` never touches it.
+2. **Demo seed data** — the hardcoded `SCOTLAND_DATA`/`GARDA_DATA` objects in `app/api/import-trips/route.ts`. This is committed to git and is only ever read once: when a demo trip is (re-)created. Editing it changes what a *future* import produces; it has zero effect on a trip that already exists in Supabase.
+
+So if you fix a rendering bug or enrich the seed data in this repo, an already-existing trip won't show it until its `trip_data` row is refreshed. `POST /api/import-trips` handles that: it deletes any trip matching a seed title (`Scotland 2026` / `Lake Garda 2026`) — cascading to its `trip_data` row — then recreates it from the current seed. This is exposed as a plain button ("Reset demo trips to latest data") on `/settings`, so refreshing a demo trip after a code change is one tap for the user, not a database edit.
+
+A trip the user built from their own intake form (not a demo trip) has no seed data at all — there is no way to "reset" it from git. The only ways its data changes are: the app's own edit/delete UI, a Claude regeneration, or someone with direct Supabase access.
 
 ---
 
